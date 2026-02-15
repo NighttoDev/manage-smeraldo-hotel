@@ -3,6 +3,9 @@
 -- Migration: 00001_initial_schema.sql
 -- ============================================================================
 
+-- Ensure pgcrypto is available for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- ----------------------------------------------------------------------------
 -- 1. Custom Enum Types
 -- ----------------------------------------------------------------------------
@@ -64,7 +67,9 @@ CREATE TABLE bookings (
   status          TEXT DEFAULT 'confirmed',
   created_by      UUID REFERENCES staff_members(id),
   created_at      TIMESTAMPTZ DEFAULT now(),
-  updated_at      TIMESTAMPTZ DEFAULT now()
+  updated_at      TIMESTAMPTZ DEFAULT now(),
+
+  CONSTRAINT bookings_dates_check CHECK (check_out_date > check_in_date)
 );
 
 -- Attendance Logs
@@ -85,8 +90,8 @@ CREATE TABLE inventory_items (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name                TEXT UNIQUE NOT NULL,
   category            TEXT NOT NULL,
-  current_stock       INTEGER NOT NULL DEFAULT 0,
-  low_stock_threshold INTEGER NOT NULL DEFAULT 5,
+  current_stock       INTEGER NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
+  low_stock_threshold INTEGER NOT NULL DEFAULT 5 CHECK (low_stock_threshold >= 0),
   unit                TEXT NOT NULL DEFAULT 'units',
   created_at          TIMESTAMPTZ DEFAULT now(),
   updated_at          TIMESTAMPTZ DEFAULT now()
@@ -97,7 +102,7 @@ CREATE TABLE stock_movements (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   item_id        UUID NOT NULL REFERENCES inventory_items(id),
   movement_type  movement_type NOT NULL,
-  quantity       INTEGER NOT NULL,
+  quantity       INTEGER NOT NULL CHECK (quantity > 0),
   recipient_name TEXT,
   logged_by      UUID NOT NULL REFERENCES staff_members(id),
   movement_date  DATE NOT NULL,

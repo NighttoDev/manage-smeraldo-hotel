@@ -35,10 +35,10 @@ CREATE POLICY "Authenticated users can read room status logs"
   TO authenticated
   USING (true);
 
-CREATE POLICY "Authenticated users can insert room status logs"
+CREATE POLICY "Authenticated users can insert own room status logs"
   ON room_status_logs FOR INSERT
   TO authenticated
-  WITH CHECK (true);
+  WITH CHECK (changed_by = auth.uid());
 
 -- No UPDATE or DELETE policies — room_status_logs are immutable.
 

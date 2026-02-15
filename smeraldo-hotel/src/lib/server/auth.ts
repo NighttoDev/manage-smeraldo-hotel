@@ -83,12 +83,30 @@ export async function getUserRole(locals: App.Locals): Promise<StaffRole | null>
 /**
  * Require a specific role. Throws 403 if user's role is not in the allowed list.
  * Also requires authentication (redirects to /login if not authenticated).
+ *
+ * Reads locals.userRole (cached by hooks.server.ts) to avoid an extra DB round-trip.
+ * Falls back to a DB query if locals.userRole is not set (e.g. called from +server.ts
+ * endpoints where hooks may have set the value but TypeScript can't guarantee it).
  */
 export async function requireRole(
 	locals: App.Locals,
 	allowedRoles: StaffRole[]
 ): Promise<AuthSession & { role: StaffRole; full_name: string }> {
 	const authSession = await requireAuth(locals);
+
+	// Fast path: use the role already cached on locals by hooks.server.ts
+	if (locals.userRole !== null && locals.userFullName !== null) {
+		if (!allowedRoles.includes(locals.userRole)) {
+			error(403, 'Forbidden — insufficient permissions');
+		}
+		return {
+			...authSession,
+			role: locals.userRole,
+			full_name: locals.userFullName
+		};
+	}
+
+	// Slow path: locals.userRole not set — fall back to DB query
 	const profile = await getStaffProfile(locals);
 
 	if (!profile) {

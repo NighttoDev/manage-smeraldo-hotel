@@ -53,18 +53,45 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return { session, user };
 	};
 
+	// Initialise role locals to null — populated below if user is authenticated
+	event.locals.userRole = null;
+	event.locals.userFullName = null;
+
 	// Skip auth check for static assets
 	if (isStaticAsset(event.url.pathname)) {
 		return resolve(event);
 	}
 
-	// Auth gate — redirect unauthenticated users to /login
-	if (!isPublicRoute(event.url.pathname)) {
-		const { session } = await event.locals.safeGetSession();
+	const { session, user } = await event.locals.safeGetSession();
 
-		if (!session) {
-			redirect(303, '/login');
+	if (user && session) {
+		// Fetch staff profile to verify account is active and cache role on locals
+		const { data: profile } = await event.locals.supabase
+			.from('staff_members')
+			.select('is_active, role, full_name')
+			.eq('id', user.id)
+			.single();
+
+		if (!profile) {
+			// Auth user exists but no staff_members record — sign out and redirect
+			await event.locals.supabase.auth.signOut();
+			redirect(303, '/login?reason=no_profile');
 		}
+
+		if (!profile.is_active) {
+			// Staff account has been deactivated by a manager — sign out and redirect
+			await event.locals.supabase.auth.signOut();
+			redirect(303, '/login?reason=deactivated');
+		}
+
+		// Cache role and name on locals — used by requireRole() to avoid extra DB queries
+		event.locals.userRole = profile.role as App.Locals['userRole'];
+		event.locals.userFullName = profile.full_name as string;
+	}
+
+	// Auth gate — redirect unauthenticated users to /login
+	if (!isPublicRoute(event.url.pathname) && !session) {
+		redirect(303, '/login');
 	}
 
 	return resolve(event, {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { page } from '$app/stores';
 	import type { ActionData } from './$types';
 
 	interface Props {
@@ -8,6 +9,14 @@
 
 	let { form }: Props = $props();
 	let isSubmitting = $state(false);
+
+	const reasonMessages: Record<string, string> = {
+		deactivated: 'Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản lý.',
+		no_profile: 'Tài khoản không tìm thấy. Vui lòng liên hệ quản lý.'
+	};
+
+	const reason = $derived($page.url.searchParams.get('reason') ?? '');
+	const reasonMessage = $derived(reason ? (reasonMessages[reason] ?? '') : '');
 </script>
 
 <svelte:head>
@@ -21,6 +30,16 @@
 			<h1 class="font-sans text-2xl font-bold text-primary">Smeraldo Hotel</h1>
 			<p class="mt-1 font-sans text-sm text-body-text">Hệ thống quản lý khách sạn</p>
 		</div>
+
+		<!-- Account status banner (deactivated / no_profile) -->
+		{#if reasonMessage}
+			<div
+				class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+				role="alert"
+			>
+				{reasonMessage}
+			</div>
+		{/if}
 
 		<!-- Login Form -->
 		<form

@@ -38,6 +38,29 @@ CREATE POLICY rooms_update_housekeeping_status ON rooms
   WITH CHECK (get_user_role() = 'housekeeping' AND status = 'ready');
 
 -- =============================================================================
+-- Trigger: prevent housekeeping from modifying protected room columns
+-- =============================================================================
+CREATE OR REPLACE FUNCTION enforce_housekeeping_room_update()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF get_user_role() = 'housekeeping' THEN
+    IF NEW.room_number IS DISTINCT FROM OLD.room_number
+      OR NEW.floor IS DISTINCT FROM OLD.floor
+      OR NEW.room_type IS DISTINCT FROM OLD.room_type
+      OR NEW.current_guest_name IS DISTINCT FROM OLD.current_guest_name THEN
+      RAISE EXCEPTION 'Housekeeping can only update room status';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_enforce_housekeeping_room_update
+  BEFORE UPDATE ON rooms
+  FOR EACH ROW
+  EXECUTE FUNCTION enforce_housekeeping_room_update();
+
+-- =============================================================================
 -- BOOKINGS
 -- =============================================================================
 -- SELECT: manager + reception only

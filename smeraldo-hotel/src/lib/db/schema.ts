@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// ── Shared Validators ─────────────────────────────────────────────────────────
+
+const DateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD date string');
+
 // ── Enum Schemas ──────────────────────────────────────────────────────────────
 
 export const StaffRoleSchema = z.enum(['manager', 'reception', 'housekeeping']);
@@ -58,8 +62,8 @@ export const BookingSchema = z.object({
 	id: z.string().uuid().optional(),
 	room_id: z.string().uuid(),
 	guest_id: z.string().uuid(),
-	check_in_date: z.coerce.date(),
-	check_out_date: z.coerce.date(),
+	check_in_date: DateString,
+	check_out_date: DateString,
 	nights_count: z.number().int().optional(),
 	booking_source: BookingSourceSchema.nullable().optional(),
 	status: z.string().optional().default('confirmed'),
@@ -71,7 +75,7 @@ export const BookingSchema = z.object({
 export const AttendanceLogSchema = z.object({
 	id: z.string().uuid().optional(),
 	staff_id: z.string().uuid(),
-	log_date: z.coerce.date(),
+	log_date: DateString,
 	shift_value: z
 		.number()
 		.refine((v) => [0, 0.5, 1, 1.5].includes(v), {
@@ -100,7 +104,7 @@ export const StockMovementSchema = z.object({
 	quantity: z.number().int(),
 	recipient_name: z.string().nullable().optional(),
 	logged_by: z.string().uuid(),
-	movement_date: z.coerce.date(),
+	movement_date: DateString,
 	created_at: z.string().datetime().optional()
 });
 
@@ -129,3 +133,18 @@ export type AttendanceLog = z.infer<typeof AttendanceLogSchema>;
 export type InventoryItem = z.infer<typeof InventoryItemSchema>;
 export type StockMovement = z.infer<typeof StockMovementSchema>;
 export type RoomStatusLog = z.infer<typeof RoomStatusLogSchema>;
+
+// ── Form Schemas (for Superforms validation) ──────────────────────────────────
+
+export const CreateStaffSchema = z.object({
+	full_name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
+	email: z.string().email('Email không hợp lệ'),
+	password: z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự'),
+	role: StaffRoleSchema
+});
+
+export const UpdateStaffSchema = z.object({
+	full_name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
+	role: StaffRoleSchema,
+	is_active: z.boolean()
+});
