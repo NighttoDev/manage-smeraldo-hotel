@@ -26,6 +26,8 @@ jobs:
       - name: Type check
         working-directory: smeraldo-hotel
         run: npm run check
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Unit tests
         working-directory: smeraldo-hotel
