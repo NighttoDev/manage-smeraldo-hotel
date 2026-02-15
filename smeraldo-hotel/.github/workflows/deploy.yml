@@ -16,18 +16,23 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
+        working-directory: smeraldo-hotel
         run: npm ci
 
       - name: Lint
+        working-directory: smeraldo-hotel
         run: npm run lint
 
       - name: Type check
+        working-directory: smeraldo-hotel
         run: npm run check
 
       - name: Unit tests
+        working-directory: smeraldo-hotel
         run: npm test
 
       - name: Build
+        working-directory: smeraldo-hotel
         run: npm run build
 
       - name: Deploy via SSH
@@ -39,7 +44,7 @@ jobs:
           script: |
             cd /var/www/smeraldo-hotel
             git pull origin main
-            npm ci
+            cd smeraldo-hotel
+            npm ci --omit=dev
             npm run build
-            npm prune --omit=dev
             pm2 reload smeraldo-hotel
