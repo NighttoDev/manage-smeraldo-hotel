@@ -22,7 +22,7 @@ code_patterns:
   - 'Certbot cert at /etc/letsencrypt/live/<domain>/fullchain.pem — separate cert per domain name'
   - 'Supabase .env uses SUPABASE_PUBLIC_URL + API_EXTERNAL_URL + SITE_URL for external domain binding'
   - 'PM2 loads .env via env_file — reload required after .env change'
-  - 'Docker compose restart required after Supabase .env change'
+  - 'docker compose down && up -d required after Supabase .env change (restart does not re-read .env)'
   - 'GitHub Secrets flow: secret → CI job env → npm run build → baked into adapter-node build'
 test_patterns:
   - 'No tests for infrastructure — manual smoke test checklist only'
@@ -117,7 +117,7 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
 
 3. **HTTP 80 redirect catches both domains** — The HTTP redirect block must include both `smeraldohotel.online` and `manage.smeraldohotel.online` in `server_name` to ensure all HTTP traffic redirects to HTTPS on the new subdomain.
 
-4. **Supabase containers need restart** — After updating `/opt/supabase/.env`, run `docker compose restart` in `/opt/supabase` to apply new `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL`, and `SITE_URL`.
+4. **Supabase containers need full recreation** — `docker compose restart` does NOT re-read `.env` (restarts existing containers without recreating). Must use `docker compose down && docker compose up -d` to apply new `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL`, and `SITE_URL`.
 
 5. **GitHub Secret update triggers a new CI build** — After updating `PUBLIC_SUPABASE_URL` secret, push an empty commit (or manually trigger workflow) to bake the new URL into the next build.
 
@@ -140,14 +140,40 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
 
 ---
 
+#### Part A.5 — Pre-Migration Baseline Check (VPS, before any changes)
+
+- [ ] **Task 0.5: Verify current state is healthy before touching anything**
+  - Where: VPS + local machine
+  - Action:
+    ```bash
+    # Confirm app is responding
+    curl -I https://smeraldohotel.online/
+    # Expected: HTTP/2 200 or 301
+
+    # Confirm Supabase containers are healthy
+    ssh root@103.47.225.24 "cd /opt/supabase && docker compose ps"
+    # Expected: all services Up (healthy)
+
+    # Confirm PM2 is running
+    ssh root@103.47.225.24 "pm2 list"
+    # Expected: smeraldo-hotel status: online
+    ```
+  - Notes: If anything is already broken before migration starts, stop and fix it first. Without this baseline, you cannot distinguish pre-existing breakage from migration-caused breakage.
+
+---
+
 #### Part B — DNS (manual user action, prerequisite for all VPS tasks)
 
 - [ ] **Task 1: Add DNS A record for `manage.smeraldohotel.online`**
   - Where: Your DNS provider (domain registrar control panel)
   - Action: Create A record: `manage.smeraldohotel.online` → `103.47.225.24`
   - TTL: 300 seconds (5 min) for fast propagation
-  - Verify: `dig manage.smeraldohotel.online +short` should return `103.47.225.24`
-  - Notes: All subsequent VPS tasks depend on this. Do not proceed until `dig` confirms the record resolves.
+  - Verify with **public resolver** (not local cache):
+    ```bash
+    dig @8.8.8.8 manage.smeraldohotel.online +short
+    ```
+    Must return `103.47.225.24`. Local `dig` without `@8.8.8.8` can give a cached false positive — Certbot's ACME server checks from outside, so always verify via a public resolver.
+  - Notes: **HARD GATE** — do not proceed to Task 2 until this returns the correct IP.
 
 ---
 
@@ -169,6 +195,10 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
 
 - [ ] **Task 3: Replace `/etc/nginx/sites-available/smeraldo` with new 4-block config**
   - File: `/etc/nginx/sites-available/smeraldo` (VPS)
+  - **First, backup the existing config:**
+    ```bash
+    cp /etc/nginx/sites-available/smeraldo /etc/nginx/sites-available/smeraldo.bak.$(date +%Y%m%d)
+    ```
   - Action: Replace entire file content with the following:
 
     ```nginx
@@ -274,10 +304,19 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
     }
 
     # ─── 4. HTTP → HTTPS redirect (both domains) ─────────────────────────────
+    # IMPORTANT: acme-challenge location must come BEFORE the redirect so
+    # Certbot HTTP-01 renewals (for both certs) can complete via port 80.
     server {
         listen 80;
         server_name smeraldohotel.online manage.smeraldohotel.online;
-        return 301 https://manage.smeraldohotel.online$request_uri;
+
+        location /.well-known/acme-challenge/ {
+            root /var/www/html;
+        }
+
+        location / {
+            return 301 https://manage.smeraldohotel.online$request_uri;
+        }
     }
     ```
 
@@ -293,26 +332,47 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
 
 - [ ] **Task 4: Update domain vars in `/opt/supabase/.env`**
   - File: `/opt/supabase/.env` (VPS)
-  - Action: Change these three lines:
+  - **First, backup the existing .env:**
+    ```bash
+    cp /opt/supabase/.env /opt/supabase/.env.bak.$(date +%Y%m%d)
     ```
-    SUPABASE_PUBLIC_URL=https://manage.smeraldohotel.online
-    API_EXTERNAL_URL=https://manage.smeraldohotel.online
-    SITE_URL=https://manage.smeraldohotel.online
+  - Action — update with `sed`:
+    ```bash
+    sed -i 's|SUPABASE_PUBLIC_URL=https://smeraldohotel.online|SUPABASE_PUBLIC_URL=https://manage.smeraldohotel.online|' /opt/supabase/.env
+    sed -i 's|API_EXTERNAL_URL=https://smeraldohotel.online|API_EXTERNAL_URL=https://manage.smeraldohotel.online|' /opt/supabase/.env
+    sed -i 's|SITE_URL=https://smeraldohotel.online|SITE_URL=https://manage.smeraldohotel.online|' /opt/supabase/.env
     ```
-  - Also ensure `ADDITIONAL_REDIRECT_URLS` includes `https://manage.smeraldohotel.online` (add it if the line is not empty)
+  - Update `ADDITIONAL_REDIRECT_URLS` — replace the old domain with the new one (do not leave both):
+    ```bash
+    sed -i 's|ADDITIONAL_REDIRECT_URLS=https://smeraldohotel.online|ADDITIONAL_REDIRECT_URLS=https://manage.smeraldohotel.online|' /opt/supabase/.env
+    ```
+    If `ADDITIONAL_REDIRECT_URLS` was empty, set it to the new domain. Leaving `smeraldohotel.online` in the redirect allowlist is a security risk.
+  - Verify the changes:
+    ```bash
+    grep -E 'SUPABASE_PUBLIC_URL|API_EXTERNAL_URL|SITE_URL|ADDITIONAL_REDIRECT' /opt/supabase/.env
+    ```
   - Notes: `SITE_URL` controls where Supabase Auth redirects users after email confirmation. Must match the app's new URL.
 
-- [ ] **Task 5: Restart Supabase Docker containers**
+- [ ] **Task 5: Recreate Supabase Docker containers to apply new env**
   - Where: VPS
+  - **Important:** `docker compose restart` does NOT re-read `.env` — it restarts containers with their existing environment. You must recreate the containers with `down && up -d`.
   - Action:
     ```bash
-    cd /opt/supabase && docker compose restart
+    cd /opt/supabase
+    docker compose down
+    docker compose up -d
+    sleep 45
     ```
-  - Wait ~30 seconds, then verify all containers are healthy:
+  - Verify containers are healthy **and responding** (not just "Up"):
     ```bash
     docker compose ps
+    # All should show (healthy) — not just Up
+
+    # Also verify Supabase Auth is actually responding with new domain
+    curl -sf http://localhost:8000/auth/v1/health
+    # Expected: {"status":"ok"} or similar (not a connection error)
     ```
-  - All services should show `(healthy)` or `Up`.
+  - If any container is not healthy: `docker compose logs auth` to debug.
 
 ---
 
@@ -320,13 +380,18 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
 
 - [ ] **Task 6: Update app `.env` on VPS**
   - File: `/var/www/smeraldo-hotel/smeraldo-hotel/.env` (VPS)
-  - Action: Change:
+  - **First, backup the existing .env:**
+    ```bash
+    cp /var/www/smeraldo-hotel/smeraldo-hotel/.env /var/www/smeraldo-hotel/smeraldo-hotel/.env.bak.$(date +%Y%m%d)
     ```
-    PUBLIC_SUPABASE_URL=https://manage.smeraldohotel.online
+  - Action:
+    ```bash
+    sed -i 's|PUBLIC_SUPABASE_URL=https://smeraldohotel.online|PUBLIC_SUPABASE_URL=https://manage.smeraldohotel.online|' /var/www/smeraldo-hotel/smeraldo-hotel/.env
     ```
-  - Notes: This is the runtime env the PM2 process reads on start. Required even though CI also sets it — PM2 loads `.env` independently.
+  - Notes: PM2 loads `.env` at process start via `env_file`. This will be picked up after the CI deploy reloads PM2.
 
 - [ ] **Task 7: Update GitHub Secret `PUBLIC_SUPABASE_URL`**
+  - ⚠ **HARD GATE: Complete this step BEFORE pushing the empty commit in Task 8.** If you push first, CI will build with the old URL.
   - Where: Local machine (with `gh` CLI authenticated)
   - Action:
     ```bash
@@ -334,21 +399,26 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
       --body "https://manage.smeraldohotel.online" \
       --repo NighttoDev/Smeraldo-Hotel
     ```
-  - Notes: This bakes the new URL into future CI builds (the SvelteKit adapter-node build inlines `PUBLIC_*` vars at build time).
-
-- [ ] **Task 8: PM2 reload + trigger CI deploy**
-  - Where: VPS + local machine
-  - Action (VPS — apply new .env immediately):
+  - Verify it was set:
     ```bash
-    pm2 reload smeraldo-hotel
+    gh secret list --repo NighttoDev/Smeraldo-Hotel | grep PUBLIC_SUPABASE_URL
     ```
-  - Action (local — trigger a fresh CI build with updated secret):
+  - Notes: `PUBLIC_*` vars in SvelteKit with adapter-node are **baked into the build at compile time**. The GitHub Secret must be updated first so the next CI build uses the new value.
+
+- [ ] **Task 8: Trigger CI deploy, then PM2 reload**
+  - ⚠ **Order matters: push the empty commit FIRST to trigger CI, then PM2 reload AFTER CI deploy succeeds.**
+  - Action 1 (local — trigger CI build with updated secret):
     ```bash
     cd "/Users/khoatran/Downloads/Smeraldo Hotel"
     git commit --allow-empty -m "chore: trigger deploy after domain migration to manage.smeraldohotel.online"
     git push origin main
     ```
-  - Notes: The empty commit triggers the GitHub Actions pipeline which will rebuild with the new `PUBLIC_SUPABASE_URL` secret and redeploy via SSH.
+  - Action 2 — **Wait for CI pipeline to complete successfully** (check GitHub Actions tab). CI will rebuild the app with the new `PUBLIC_SUPABASE_URL` and run `pm2 reload smeraldo-hotel` via SSH on the VPS.
+  - Action 3 (only if CI deploy does NOT reload PM2, or for the runtime .env to take effect):
+    ```bash
+    ssh root@103.47.225.24 "pm2 reload smeraldo-hotel"
+    ```
+  - Notes: PM2 reload without a new build is pointless for `PUBLIC_*` vars — those are baked at compile time, not runtime. The CI rebuild is what matters. PM2 reload is only needed to pick up the `.env` change from Task 6 if CI doesn't trigger it.
 
 ---
 
@@ -388,7 +458,7 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
 
 - [ ] **AC 7:** Given Supabase Studio is unchanged, when a browser navigates to `https://smeraldohotel.online:8088/`, then Supabase Studio loads and accepts login (Studio is NOT affected by the migration)
 
-- [ ] **AC 8:** Given the PM2 process is reloaded, when `pm2 show smeraldo-hotel` is run on VPS, then `PUBLIC_SUPABASE_URL` in the env shows `https://manage.smeraldohotel.online`
+- [ ] **AC 8:** Given the CI pipeline has rebuilt and deployed the app, when a browser opens DevTools → Network on `https://manage.smeraldohotel.online/login`, then all Supabase API requests go to `manage.smeraldohotel.online/auth/v1/` and `manage.smeraldohotel.online/rest/v1/` — no requests to the old `smeraldohotel.online` domain. (`PUBLIC_*` vars are baked into the build at compile time and are not visible in `pm2 show`.)
 
 ## Additional Context
 
@@ -440,6 +510,10 @@ curl -I https://smeraldohotel.online:8088/
 - **Pre-mortem risk: Supabase containers stale after restart** — If `docker compose ps` shows any container not healthy after Task 5, run `docker compose logs auth` to check for errors. Most common issue: `LOGFLARE_API_KEY` being empty (must be non-empty).
 
 - **Pre-mortem risk: Old PUBLIC_SUPABASE_URL in built binary** — If the CI deploy runs before Task 7 (GitHub Secret update), the next build will still use the old URL. Sequence matters: update secret first, then push the empty commit.
+
+- **⚠ Operational: All active staff sessions will be invalidated at cutover** — Session cookies are scoped to `smeraldohotel.online` and will NOT be sent to `manage.smeraldohotel.online` (different subdomain, strict cookie domain rules). Every staff member who is logged in at migration time will be silently logged out when they next make an API call. Plan the migration during low-traffic hours (e.g., after midnight) and inform staff to expect a one-time re-login.
+
+- **Pre-mortem risk: Certbot HTTP-01 renewal after migration** — The Nginx HTTP block now correctly carves out `/.well-known/acme-challenge/` before the redirect (see Task 3, Block 4), so future `certbot renew` runs will succeed for both certs. Verify renewals with a dry run: `certbot renew --dry-run` after migration completes.
 
 - **Future: Supabase Studio subdomain** — If you later want Studio at `manage.smeraldohotel.online:8088` (instead of apex), you'd need to add the Studio server block for the new subdomain and expand/add a cert for port 8088. Out of scope for this migration.
 
