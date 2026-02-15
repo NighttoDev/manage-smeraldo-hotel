@@ -1,0 +1,50 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: smeraldo-hotel
+        run: npm ci
+
+      - name: Lint
+        working-directory: smeraldo-hotel
+        run: npm run lint
+
+      - name: Type check
+        working-directory: smeraldo-hotel
+        run: npm run check
+
+      - name: Unit tests
+        working-directory: smeraldo-hotel
+        run: npm test
+
+      - name: Build
+        working-directory: smeraldo-hotel
+        run: npm run build
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/smeraldo-hotel
+            git pull origin main
+            cd smeraldo-hotel
+            npm ci --omit=dev
+            npm run build
+            pm2 reload smeraldo-hotel
