@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import type { InventoryItemRow } from '$lib/types/inventory';
 
 	interface Props {
@@ -12,7 +13,7 @@
 	}
 
 	let groupedItems = $derived.by(() => {
-		const groups = new Map<string, InventoryItemRow[]>();
+		const groups = new SvelteMap<string, InventoryItemRow[]>();
 		for (const item of items) {
 			const existing = groups.get(item.category) ?? [];
 			existing.push(item);

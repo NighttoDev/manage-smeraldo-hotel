@@ -52,7 +52,7 @@
 </form>
 
 <div class="flex gap-0.5">
-	{#each options as opt}
+	{#each options as opt (opt.value)}
 		<button
 			type="button"
 			onclick={() => handleChange(opt.value)}

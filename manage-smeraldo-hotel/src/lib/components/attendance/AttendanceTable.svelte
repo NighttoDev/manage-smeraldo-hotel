@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import ShiftInput from './ShiftInput.svelte';
 	import type { AttendanceWithStaff } from '$lib/types/attendance';
 
@@ -30,10 +31,10 @@
 
 	// Build a lookup map: staffId -> { date -> shift_value }
 	let attendanceMap = $derived.by(() => {
-		const map = new Map<string, Map<string, number>>();
+		const map = new SvelteMap<string, SvelteMap<string, number>>();
 		for (const log of logs) {
 			if (!map.has(log.staff_id)) {
-				map.set(log.staff_id, new Map());
+				map.set(log.staff_id, new SvelteMap());
 			}
 			map.get(log.staff_id)!.set(log.log_date, log.shift_value);
 		}

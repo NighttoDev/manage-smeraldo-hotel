@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { page } from '$app/stores';
 
 	interface Props {
@@ -28,12 +29,13 @@
 		year > currentYear || (year === currentYear && month >= currentMonth)
 	);
 
-	function navigate(newYear: number, newMonth: number) {
+	async function navigate(newYear: number, newMonth: number) {
 		// Preserve existing query params (e.g., filters added later)
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('year', String(newYear));
 		params.set('month', String(newMonth));
-		goto(`?${params.toString()}`, { invalidateAll: true });
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		await goto(`?${params.toString()}`, { invalidateAll: true });
 	}
 
 	function prevMonth() {

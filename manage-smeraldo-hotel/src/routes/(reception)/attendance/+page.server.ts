@@ -1,4 +1,4 @@
-import { fail, error } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { superValidate, message } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
