@@ -57,7 +57,7 @@ development_status:
 
   epic-3: in-progress
   3-1-create-a-new-booking: done
-  3-2-guest-check-in-flow: backlog
+  3-2-guest-check-in-flow: ready-for-dev
   3-3-guest-check-out-flow: backlog
   3-4-booking-management-edit-cancel: backlog
   3-5-guest-record-creation-display: backlog
@@ -66,7 +66,7 @@ development_status:
   epic-4: in-progress
   4-1-log-daily-attendance-for-all-staff: review
   4-2-monthly-attendance-calculation-summary-report: review
-  4-3-manager-attendance-edit: backlog
+  4-3-manager-attendance-edit: review
   epic-4-retrospective: optional
 
   epic-5: backlog
