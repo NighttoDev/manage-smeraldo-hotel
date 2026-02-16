@@ -44,7 +44,7 @@ git remote -v  # → https://github.com/NighttoDev/Smeraldo-Hotel.git
 |-----|-------|
 | IP | `103.47.225.24` |
 | SSH | `ssh root@103.47.225.24` |
-| Domain | `https://manage.smeraldohotel.online` (apex `smeraldohotel.online` → 301 redirect) |
+| Domain | `https://manage.smeraldohotel.online` (apex `smeraldohotel.online` is a separate project — not handled by this Nginx config) |
 | OS | Ubuntu 25.04 |
 | App dir | `/var/www/smeraldo-hotel/smeraldo-hotel` |
 | Supabase dir | `/opt/supabase` |
