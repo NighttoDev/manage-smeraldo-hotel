@@ -64,7 +64,7 @@ ssh root@103.47.225.24 "grep -E 'ANON_KEY|SERVICE_ROLE_KEY' /opt/supabase/.env"
 
 | Item | Value |
 |------|-------|
-| Studio URL | `https://smeraldohotel.online:8088` (unchanged — stays on apex domain) |
+| Studio URL | `https://manage.smeraldohotel.online:8088` |
 | Studio login | `supabase` / `8LYW0PkyjjLSZNxjQTL7Nw` |
 | DB user | `supabase_admin` |
 | DB password | `4dkhU4n7oyPBODf7VH2lYdf1f-DemJKW6gAPI3WQ37I` |
@@ -78,7 +78,7 @@ Kong gateway  → https://manage.smeraldohotel.online/rest/v1/ (via Nginx)
 Auth          → https://manage.smeraldohotel.online/auth/v1/
 Realtime      → https://manage.smeraldohotel.online/realtime/v1/
 Storage       → https://manage.smeraldohotel.online/storage/v1/
-Studio        → https://smeraldohotel.online:8088  (unchanged — apex domain)
+Studio        → https://manage.smeraldohotel.online:8088
 ```
 
 **Restart Supabase:**
