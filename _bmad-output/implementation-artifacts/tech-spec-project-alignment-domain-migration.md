@@ -2,7 +2,7 @@
 title: 'Project Alignment Review & Domain Migration to manage.smeraldohotel.online'
 slug: 'project-alignment-domain-migration'
 created: '2026-02-15'
-status: 'ready-for-dev'
+status: 'in-progress'
 stepsCompleted: [1, 2, 3, 4]
 tech_stack:
   - 'Nginx (VPS reverse proxy)'
@@ -390,7 +390,7 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
     ```
   - Notes: PM2 loads `.env` at process start via `env_file`. This will be picked up after the CI deploy reloads PM2.
 
-- [ ] **Task 7: Update GitHub Secret `PUBLIC_SUPABASE_URL`**
+- [x] **Task 7: Update GitHub Secret `PUBLIC_SUPABASE_URL`**
   - ⚠ **HARD GATE: Complete this step BEFORE pushing the empty commit in Task 8.** If you push first, CI will build with the old URL.
   - Where: Local machine (with `gh` CLI authenticated)
   - Action:
@@ -424,7 +424,7 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
 
 #### Part G — Documentation Update
 
-- [ ] **Task 9: Update `_bmad-output/infrastructure/REFERENCE.md`**
+- [x] **Task 9: Update `_bmad-output/infrastructure/REFERENCE.md`**
   - File: `_bmad-output/infrastructure/REFERENCE.md`
   - Action: Update all domain references:
     - Section 2 (VPS Access): Change `Domain` row to `https://manage.smeraldohotel.online`
@@ -433,7 +433,7 @@ The VPS Nginx config (`/etc/nginx/sites-available/smeraldo`) has 3 server blocks
     - Section 6 (Local Development): Update `PUBLIC_SUPABASE_URL` in the `.env` example block
     - Endpoints table at bottom: Update all app/API URLs to `manage.smeraldohotel.online`
 
-- [ ] **Task 10: Update `memory/MEMORY.md`**
+- [x] **Task 10: Update `memory/MEMORY.md`**
   - File: `memory/MEMORY.md`
   - Action: In the `## Live Server` section, change:
     - `App: https://smeraldohotel.online/` → `App: https://manage.smeraldohotel.online/`
@@ -520,3 +520,43 @@ curl -I https://smeraldohotel.online:8088/
 - **Future: www subdomain** — `www.smeraldohotel.online` is not handled. If needed, add a CNAME `www → manage.smeraldohotel.online` and an additional server block. Out of scope.
 
 - **Alignment verified**: No code changes needed for Epics 3–7 prerequisites. The pre-scaffolded DB modules are ready. Next step after this migration: run `/create-story` to generate the next Epic 3 story.
+
+---
+
+## Dev Agent Record
+
+### Agent Model Used
+
+claude-sonnet-4-5-20250929
+
+### Tasks Completed by Agent
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Task 0 — Alignment review | ✅ Done | Epics 1–2 fully match docs. No deviations. Epics 3–7 correctly pending. |
+| Task 7 — GitHub Secret update | ✅ Done | `PUBLIC_SUPABASE_URL` updated to `https://manage.smeraldohotel.online` via `gh secret set`. Verified at 2026-02-15T15:27:50Z. |
+| Task 9 — REFERENCE.md update | ✅ Done | All domain references updated: VPS section, Supabase services, GitHub Secrets, local .env example. |
+| Task 10 — MEMORY.md update | ✅ Done | `## Live Server` section updated; project status section updated with migration pending note. |
+
+### Tasks Requiring Manual VPS Access (not executable by agent)
+
+| Task | Status | Blocker |
+|------|--------|---------|
+| Task 0.5 — Pre-migration health check | ⏳ Pending | Requires `ssh root@103.47.225.24` |
+| Task 1 — DNS A record | ⏳ Pending | **User action** — add A record in DNS registrar control panel |
+| Task 2 — Certbot certificate | ⏳ Pending | Requires VPS SSH + DNS must propagate first |
+| Task 3 — Nginx reconfiguration | ⏳ Pending | Requires VPS SSH + cert must be issued first |
+| Task 4 — Supabase .env update | ⏳ Pending | Requires VPS SSH |
+| Task 5 — Docker compose recreate | ⏳ Pending | Requires VPS SSH + .env must be updated first |
+| Task 6 — App .env on VPS | ⏳ Pending | Requires VPS SSH |
+| Task 8 — Trigger CI + PM2 reload | ⏳ Pending | Push empty commit after all VPS tasks complete |
+
+### Critical Discovery During Dev
+
+**VPS CI deploy re-runs `npm run build` on the VPS itself** (see deploy.yml SSH step). This means the live app on VPS still uses the VPS `.env` file (`PUBLIC_SUPABASE_URL=https://smeraldohotel.online`) even after the GitHub Secret was updated. The live app is **not broken** — it's still serving requests correctly from `smeraldohotel.online`. The GitHub Secret change only takes effect after VPS tasks (3, 4, 5, 6) complete and a new CI build bakes the new URL.
+
+### File List
+
+- `_bmad-output/infrastructure/REFERENCE.md` — UPDATED (domain migration docs)
+- `/Users/khoatran/.claude/projects/-Users-khoatran-Downloads-Smeraldo-Hotel/memory/MEMORY.md` — UPDATED (domain + project status)
+- `_bmad-output/implementation-artifacts/tech-spec-project-alignment-domain-migration.md` — this file (status: in-progress)

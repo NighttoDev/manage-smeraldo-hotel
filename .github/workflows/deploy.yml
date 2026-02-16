@@ -18,26 +18,26 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
-          cache-dependency-path: smeraldo-hotel/package-lock.json
+          cache-dependency-path: manage-smeraldo-hotel/package-lock.json
 
       - name: Install dependencies
-        working-directory: smeraldo-hotel
+        working-directory: manage-smeraldo-hotel
         run: npm ci
 
       - name: Lint
-        working-directory: smeraldo-hotel
+        working-directory: manage-smeraldo-hotel
         run: npm run lint
 
       - name: Type check
-        working-directory: smeraldo-hotel
+        working-directory: manage-smeraldo-hotel
         run: npm run check
 
       - name: Unit tests
-        working-directory: smeraldo-hotel
+        working-directory: manage-smeraldo-hotel
         run: npm test
 
       - name: Build
-        working-directory: smeraldo-hotel
+        working-directory: manage-smeraldo-hotel
         run: npm run build
 
       - name: Deploy via SSH
@@ -47,10 +47,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/manage-smeraldo-hotel
+            cd /var/www/manage-manage-smeraldo-hotel
             git pull origin main
-            cd smeraldo-hotel
+            cd manage-smeraldo-hotel
             npm ci
             npm run build
             npm prune --omit=dev
-            pm2 reload manage-smeraldo-hotel
+            pm2 reload manage-manage-smeraldo-hotel
