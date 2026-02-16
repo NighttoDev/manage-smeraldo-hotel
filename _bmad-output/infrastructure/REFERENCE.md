@@ -1,5 +1,5 @@
 # Smeraldo Hotel — Master Reference
-> Last updated: 2026-02-15. Read this file first after any context loss.
+> Last updated: 2026-02-16. Read this file first after any context loss.
 
 ---
 
@@ -49,9 +49,9 @@ git remote -v  # → https://github.com/NighttoDev/Smeraldo-Hotel.git
 | App dir | `/var/www/smeraldo-hotel/smeraldo-hotel` |
 | Supabase dir | `/opt/supabase` |
 
-> ⚠ The local `~/.ssh/id_ed25519` key is **NOT** authorized on the VPS.
-> The VPS uses `/root/.ssh/github_actions` (stored in GitHub secret `SSH_PRIVATE_KEY`).
-> To SSH in manually, you need the password or to copy a new public key to the VPS first.
+> SSH password: `3CRa2OTV9FWPSmGb` (VPS provider: server ID 2350517)
+> Local `~/.ssh/id_ed25519` is NOT authorized. Use password or sshpass:
+> `sshpass -p '3CRa2OTV9FWPSmGb' ssh -o StrictHostKeyChecking=no root@103.47.225.24`
 
 **Get Supabase keys from VPS:**
 ```bash
@@ -179,7 +179,7 @@ DATABASE_URL=postgresql://supabase_admin:4dkhU4n7oyPBODf7VH2lYdf1f-DemJKW6gAPI3W
 
 ---
 
-## 8. Project Status (as of 2026-02-15)
+## 8. Project Status (as of 2026-02-16)
 
 | Story | Status |
 |-------|--------|
@@ -187,7 +187,9 @@ DATABASE_URL=postgresql://supabase_admin:4dkhU4n7oyPBODf7VH2lYdf1f-DemJKW6gAPI3W
 | 1.2 — DB schema, RLS, migrations | ✅ done |
 | 1.3 — Staff login / session / logout | ✅ done |
 | 1.4 — RBAC + Staff account management | ✅ done |
-| Epic 2+ | backlog |
+| 2.1–2.5 — Live room diagram + Realtime | ✅ done |
+| Domain migration to manage.* | ✅ done (2026-02-16) |
+| Epic 3+ | backlog |
 
 **Test count:** 52/52 passing across 8 test files.
 
@@ -237,3 +239,53 @@ ssh root@103.47.225.24 "cd /var/www/smeraldo-hotel && git pull origin main && cd
 # Check running processes
 ssh root@103.47.225.24 "pm2 list && docker ps --format 'table {{.Names}}\t{{.Status}}'"
 ```
+
+---
+
+## 11. Domain Migration Record (2026-02-16)
+
+### What changed
+
+| Item | Before | After |
+|------|--------|-------|
+| App URL | `https://smeraldohotel.online` | `https://manage.smeraldohotel.online` |
+| Supabase API | `https://smeraldohotel.online/rest/v1/` etc. | `https://manage.smeraldohotel.online/rest/v1/` etc. |
+| Supabase Studio | `https://smeraldohotel.online:8088` | `https://manage.smeraldohotel.online:8088` |
+| `smeraldohotel.online` | Served the app | Blank 200 — reserved for a separate project |
+| GitHub Secret `PUBLIC_SUPABASE_URL` | `https://smeraldohotel.online` | `https://manage.smeraldohotel.online` |
+| VPS app `.env` `PUBLIC_SUPABASE_URL` | `https://smeraldohotel.online` | `https://manage.smeraldohotel.online` |
+| Supabase `.env` (`SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL`, `SITE_URL`) | `smeraldohotel.online` | `manage.smeraldohotel.online` |
+
+### Steps executed (in order)
+
+1. Added DNS A record `manage.smeraldohotel.online → 103.47.225.24` in Namecheap (TTL 300)
+2. Issued Certbot TLS cert: `certbot certonly --nginx -d manage.smeraldohotel.online`
+   - Cert path: `/etc/letsencrypt/live/manage.smeraldohotel.online/` — expires 2026-05-17
+3. Replaced `/etc/nginx/sites-available/smeraldo` with 3-block config:
+   - Block 1: `manage.smeraldohotel.online:443` — app + all Supabase API proxy paths
+   - Block 2: `manage.smeraldohotel.online:8088` — Supabase Studio
+   - Block 3: `smeraldohotel.online:443` — blank 200, SSL cert kept, reserved for separate project
+   - Block 4: HTTP→HTTPS redirect for both domains (acme-challenge exemption for cert renewals)
+4. Updated `/opt/supabase/.env`: `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL`, `SITE_URL` → `manage.*`
+5. Recreated Supabase containers: `docker compose down && docker compose up -d`
+6. Updated `/var/www/smeraldo-hotel/smeraldo-hotel/.env`: `PUBLIC_SUPABASE_URL` → `manage.*`
+7. Updated GitHub Secret `PUBLIC_SUPABASE_URL` → `https://manage.smeraldohotel.online`
+8. Pushed empty commit to trigger CI rebuild — bakes new `PUBLIC_SUPABASE_URL` into build
+
+### Current Nginx config summary
+
+```
+manage.smeraldohotel.online:443  → app (127.0.0.1:3000) + Supabase API (127.0.0.1:8000)
+manage.smeraldohotel.online:8088 → Studio (127.0.0.1:3001)
+smeraldohotel.online:443         → blank 200 (separate project placeholder)
+:80 both domains                 → 301 to https://$host (no cross-domain redirect)
+```
+
+### Key facts to remember
+
+- `smeraldohotel.online` cert still exists at `/etc/letsencrypt/live/smeraldohotel.online/` — needed for its HTTPS server block
+- `manage.smeraldohotel.online` cert at `/etc/letsencrypt/live/manage.smeraldohotel.online/` — expires 2026-05-17, auto-renews
+- `PUBLIC_*` vars in SvelteKit adapter-node are **baked at compile time** — changing `.env` alone is not enough, must rebuild
+- CI SSH deploy step runs `npm run build` ON THE VPS using VPS `.env` — the GitHub Secret governs the CI runner build; the VPS `.env` governs the production build
+- All Supabase containers must be **recreated** (not restarted) after `.env` change: `docker compose down && docker compose up -d`
+- `smeraldohotel.online` browser redirect cache: old 301 may be cached in browsers — test in incognito
