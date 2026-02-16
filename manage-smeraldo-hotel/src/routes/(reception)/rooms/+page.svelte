@@ -9,7 +9,7 @@
 	import CheckInDialog from '$lib/components/bookings/CheckInDialog.svelte';
 	import { initRoomState, roomListStore } from '$lib/stores/roomState';
 	import type { RoomState, RoomStatus } from '$lib/stores/roomState';
-	import type { BookingWithGuest } from '$lib/server/db/bookings';
+	import type { BookingWithGuest } from '$lib/db/schema';
 	import type { PageData } from './$types';
 
 	interface Props {

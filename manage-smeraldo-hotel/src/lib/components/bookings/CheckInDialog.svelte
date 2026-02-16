@@ -2,9 +2,9 @@
 	import { superForm } from 'sveltekit-superforms';
 	import { zod4 } from 'sveltekit-superforms/adapters';
 	import { CheckInSchema } from '$lib/db/schema';
+	import { formatDateVN } from '$lib/utils/formatDate';
 	import type { SuperValidated } from 'sveltekit-superforms';
-	import type { CheckIn } from '$lib/db/schema';
-	import type { BookingWithGuest } from '$lib/server/db/bookings';
+	import type { CheckIn, BookingWithGuest } from '$lib/db/schema';
 
 	interface Props {
 		booking: BookingWithGuest | null;
@@ -14,22 +14,27 @@
 
 	let { booking, checkInForm, onclose }: Props = $props();
 
-	const { form: formData, errors, enhance, submitting, message } = superForm(checkInForm, {
+	const { form: formData, errors, enhance, submitting, message, reset } = superForm(checkInForm, {
 		validators: zod4(CheckInSchema),
 		onUpdated: ({ form }) => {
 			if (form.message?.type === 'success') onclose();
 		}
 	});
 
-	// Keep form fields in sync when booking prop changes
+	// Reset form (clears errors + messages) and populate fields when booking changes
 	$effect(() => {
 		if (booking) {
-			$formData.booking_id = booking.id;
-			$formData.room_id = booking.room_id;
-			$formData.guest_id = booking.guest.id;
-			$formData.guest_name = booking.guest.full_name;
-			$formData.check_in_date = booking.check_in_date;
-			$formData.check_out_date = booking.check_out_date;
+			reset({
+				data: {
+					booking_id: booking.id,
+					room_id: booking.room_id,
+					guest_id: booking.guest.id,
+					guest_name: booking.guest.full_name,
+					check_in_date: booking.check_in_date,
+					check_out_date: booking.check_out_date
+				},
+				keepMessage: false
+			});
 		}
 	});
 
@@ -40,10 +45,6 @@
 		facebook: 'Facebook',
 		walk_in: 'Khách vãng lai'
 	};
-
-	function formatDateVN(dateStr: string): string {
-		return new Intl.DateTimeFormat('vi-VN').format(new Date(dateStr + 'T12:00:00'));
-	}
 </script>
 
 {#if booking}

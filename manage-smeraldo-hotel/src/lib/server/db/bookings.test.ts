@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	createBooking,
+	getBookingById,
 	getBookingsByRoom,
 	getAllBookings,
-	getTodaysBookingForRoom,
 	getTodaysBookings,
 	checkInBooking
 } from './bookings';
@@ -178,10 +178,10 @@ describe('getAllBookings', () => {
 	});
 });
 
-// ── getTodaysBookingForRoom ────────────────────────────────────────────────────
+// ── getBookingById ────────────────────────────────────────────────────────────
 
-describe('getTodaysBookingForRoom', () => {
-	const mockBookingWithGuest = {
+describe('getBookingById', () => {
+	const mockRow = {
 		id: 'booking-uuid-1',
 		room_id: 'room-uuid-1',
 		guest_id: 'guest-uuid-1',
@@ -192,41 +192,39 @@ describe('getTodaysBookingForRoom', () => {
 		status: 'confirmed',
 		created_by: 'staff-uuid-1',
 		created_at: '2026-02-01T00:00:00Z',
-		updated_at: '2026-02-01T00:00:00Z',
-		guest: { id: 'guest-uuid-1', full_name: 'Nguyễn Văn A' }
+		updated_at: '2026-02-01T00:00:00Z'
 	};
 
-	it('returns a booking with guest when found', async () => {
-		// Chain: .select().eq().eq().eq().maybySingle()
-		mockEq.mockReturnValue({ eq: mockEq, maybeSingle: mockMaybeSingle });
-		mockMaybeSingle.mockResolvedValue({ data: mockBookingWithGuest, error: null });
+	it('returns a booking row when found', async () => {
+		mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
+		mockMaybeSingle.mockResolvedValue({ data: mockRow, error: null });
 
 		const supabase = makeMockSupabase();
-		const result = await getTodaysBookingForRoom(supabase, 'room-uuid-1', '2026-02-16');
+		const result = await getBookingById(supabase, 'booking-uuid-1');
 
 		expect(result).not.toBeNull();
-		expect(result?.guest.full_name).toBe('Nguyễn Văn A');
+		expect(result?.id).toBe('booking-uuid-1');
 		expect(result?.room_id).toBe('room-uuid-1');
 	});
 
 	it('returns null when no booking found', async () => {
-		mockEq.mockReturnValue({ eq: mockEq, maybeSingle: mockMaybeSingle });
+		mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
 		mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
 		const supabase = makeMockSupabase();
-		const result = await getTodaysBookingForRoom(supabase, 'room-uuid-no-booking', '2026-02-16');
+		const result = await getBookingById(supabase, 'booking-uuid-missing');
 
 		expect(result).toBeNull();
 	});
 
 	it('throws on Supabase error', async () => {
-		mockEq.mockReturnValue({ eq: mockEq, maybeSingle: mockMaybeSingle });
+		mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
 		mockMaybeSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } });
 
 		const supabase = makeMockSupabase();
-		await expect(
-			getTodaysBookingForRoom(supabase, 'room-uuid-1', '2026-02-16')
-		).rejects.toThrow('getTodaysBookingForRoom failed: DB error');
+		await expect(getBookingById(supabase, 'booking-uuid-1')).rejects.toThrow(
+			'getBookingById failed: DB error'
+		);
 	});
 });
 

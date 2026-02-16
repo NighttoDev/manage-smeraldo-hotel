@@ -1,6 +1,6 @@
 # Story 3.2: Guest Check-In Flow
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -201,7 +201,9 @@ claude-sonnet-4-5-20250929
 
 ### Completion Notes List
 
-- All 6 tasks implemented. 152/152 tests passing.
+- All 6 tasks implemented. 167/167 tests passing (post-review fixes).
+- Code review fixes: H1 BookingWithGuest moved to schema.ts; H2 booking-room ownership check added; H3 occupied guard added; M1 dead getTodaysBookingForRoom removed; M2 check_in_date validated server-side; M3 superForm reset() on booking change; L1 formatDateVN extracted to $lib/utils/formatDate.ts
+- Added getBookingById() to bookings.ts (needed for H2 fix); replaced its test suite.
 - `getTodaysBookings()` (bulk) used in `load` rather than per-room `getTodaysBookingForRoom()` — more efficient single query.
 - `BookingWithGuest` interface added to `bookings.ts` with re-exported `BookingSource`.
 - `CheckInDialog.svelte` uses `$effect` to sync form fields when `booking` prop changes (reactive to `handleRoomClick`).

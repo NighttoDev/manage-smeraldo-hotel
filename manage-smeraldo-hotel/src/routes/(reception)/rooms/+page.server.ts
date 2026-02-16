@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Actions, PageServerLoad } from './$types';
 import { getAllRooms, updateRoomStatus, getRoomById, insertRoomStatusLog } from '$lib/server/db/rooms';
 import type { RoomStatus } from '$lib/server/db/rooms';
-import { getTodaysBookings, checkInBooking } from '$lib/server/db/bookings';
+import { getTodaysBookings, checkInBooking, getBookingById } from '$lib/server/db/bookings';
 import { CheckInSchema } from '$lib/db/schema';
 
 /** Returns YYYY-MM-DD in Vietnam timezone (UTC+7) */
@@ -75,16 +75,51 @@ export const actions: Actions = {
 			return fail(400, { checkInForm: form });
 		}
 
-		const { booking_id, room_id, guest_id, guest_name } = form.data;
+		const { booking_id, room_id, guest_id, guest_name, check_in_date } = form.data;
 
 		const { user } = await locals.safeGetSession();
 		if (!user) {
 			return message(form, { type: 'error', text: 'Phiên đăng nhập hết hạn' }, { status: 401 });
 		}
 
+		// M2: Validate check-in date is today (prevents off-day check-ins)
+		const today = dateInVN();
+		if (check_in_date !== today) {
+			return message(
+				form,
+				{ type: 'error', text: 'Không thể check-in trước hoặc sau ngày đến' },
+				{ status: 400 }
+			);
+		}
+
 		const room = await getRoomById(locals.supabase, room_id);
 		if (!room) {
 			return message(form, { type: 'error', text: 'Không tìm thấy phòng' }, { status: 404 });
+		}
+
+		// H3: Idempotency guard — prevent double check-in
+		if (room.status === 'occupied') {
+			return message(form, { type: 'error', text: 'Phòng này đã có khách' }, { status: 409 });
+		}
+
+		// H2: Verify booking belongs to this room and is still confirmed
+		const booking = await getBookingById(locals.supabase, booking_id);
+		if (!booking) {
+			return message(form, { type: 'error', text: 'Không tìm thấy đặt phòng' }, { status: 404 });
+		}
+		if (booking.room_id !== room_id) {
+			return message(
+				form,
+				{ type: 'error', text: 'Đặt phòng không khớp với phòng được chọn' },
+				{ status: 400 }
+			);
+		}
+		if (booking.status !== 'confirmed') {
+			return message(
+				form,
+				{ type: 'error', text: 'Đặt phòng không ở trạng thái có thể check-in' },
+				{ status: 400 }
+			);
 		}
 
 		const previousStatus = room.status;

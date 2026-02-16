@@ -118,6 +118,29 @@ export const RoomStatusLogSchema = z.object({
 	notes: z.string().nullable().optional()
 });
 
+// ── Shared Interface Types ─────────────────────────────────────────────────────
+// Defined here (not in $lib/server/) so both server files and .svelte components
+// can import them without violating the server-only boundary.
+
+/** A booking row joined with its guest record (via Supabase FK join). */
+export interface BookingWithGuest {
+	id: string;
+	room_id: string;
+	guest_id: string;
+	check_in_date: string;
+	check_out_date: string;
+	nights_count: number;
+	booking_source: BookingSource | null;
+	status: string;
+	created_by: string | null;
+	created_at: string;
+	updated_at: string;
+	guest: {
+		id: string;
+		full_name: string;
+	};
+}
+
 // ── Inferred Types ────────────────────────────────────────────────────────────
 
 export type StaffRole = z.infer<typeof StaffRoleSchema>;

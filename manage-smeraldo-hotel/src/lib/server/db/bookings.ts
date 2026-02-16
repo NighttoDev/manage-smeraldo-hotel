@@ -1,8 +1,8 @@
 // Server-only — never import from .svelte components
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { BookingSource } from '$lib/db/schema';
+import type { BookingSource, BookingWithGuest } from '$lib/db/schema';
 
-export type { BookingSource };
+export type { BookingSource, BookingWithGuest };
 export type BookingStatus = 'confirmed' | 'cancelled' | 'checked_in' | 'checked_out';
 
 export interface BookingRow {
@@ -28,13 +28,7 @@ export interface BookingInsert {
 	created_by: string;
 }
 
-/** BookingRow with nested guest (from Supabase join on guests table). */
-export interface BookingWithGuest extends BookingRow {
-	guest: {
-		id: string;
-		full_name: string;
-	};
-}
+// BookingWithGuest is re-exported from $lib/db/schema (shared with .svelte files)
 
 /**
  * Create a new booking. Returns the created row.
@@ -63,31 +57,6 @@ export async function createBooking(
 	}
 
 	return booking as BookingRow;
-}
-
-/**
- * Fetch the confirmed booking for a specific room arriving on todayDate.
- * Returns null if no such booking exists.
- * Uses Supabase join to include guest.full_name in one query.
- */
-export async function getTodaysBookingForRoom(
-	supabase: SupabaseClient,
-	roomId: string,
-	todayDate: string // YYYY-MM-DD in VN timezone
-): Promise<BookingWithGuest | null> {
-	const { data, error } = await supabase
-		.from('bookings')
-		.select('*, guest:guests(id, full_name)')
-		.eq('room_id', roomId)
-		.eq('status', 'confirmed')
-		.eq('check_in_date', todayDate)
-		.maybeSingle();
-
-	if (error) {
-		throw new Error(`getTodaysBookingForRoom failed: ${error.message}`);
-	}
-
-	return data as BookingWithGuest | null;
 }
 
 /**
@@ -139,6 +108,28 @@ export async function checkInBooking(
 	if (bookingError) {
 		throw new Error(`checkInBooking: booking update failed: ${bookingError.message}`);
 	}
+}
+
+/**
+ * Fetch a single booking by ID. Returns null if not found.
+ */
+export async function getBookingById(
+	supabase: SupabaseClient,
+	bookingId: string
+): Promise<BookingRow | null> {
+	const { data, error } = await supabase
+		.from('bookings')
+		.select(
+			'id, room_id, guest_id, check_in_date, check_out_date, nights_count, booking_source, status, created_by, created_at, updated_at'
+		)
+		.eq('id', bookingId)
+		.maybeSingle();
+
+	if (error) {
+		throw new Error(`getBookingById failed: ${error.message}`);
+	}
+
+	return data as BookingRow | null;
 }
 
 /**
