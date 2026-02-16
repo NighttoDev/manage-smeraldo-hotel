@@ -172,6 +172,15 @@ export const CheckInSchema = z.object({
 
 export type CheckIn = z.infer<typeof CheckInSchema>;
 
+// ── Check-Out Form Schema (for Superforms validation) ────────────────────────
+
+export const CheckOutSchema = z.object({
+	booking_id: z.string().uuid({ error: 'Booking ID không hợp lệ' }),
+	room_id: z.string().uuid({ error: 'Room ID không hợp lệ' }),
+});
+
+export type CheckOut = z.infer<typeof CheckOutSchema>;
+
 // ── Booking Form Schema (for Superforms validation) ───────────────────────────
 
 export const CreateBookingFormSchema = z

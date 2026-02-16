@@ -169,3 +169,39 @@ export async function getAllBookings(supabase: SupabaseClient): Promise<BookingR
 
 	return (data ?? []) as BookingRow[];
 }
+
+/**
+ * Fetch all currently checked-in bookings with guest details.
+ * Used by the room diagram page for check-out dialog routing.
+ */
+export async function getOccupiedBookings(
+	supabase: SupabaseClient
+): Promise<BookingWithGuest[]> {
+	const { data, error } = await supabase
+		.from('bookings')
+		.select('*, guest:guests(id, full_name)')
+		.eq('status', 'checked_in');
+
+	if (error) {
+		throw new Error(`getOccupiedBookings failed: ${error.message}`);
+	}
+
+	return (data ?? []) as BookingWithGuest[];
+}
+
+/**
+ * Mark a booking as checked_out.
+ */
+export async function checkOutBooking(
+	supabase: SupabaseClient,
+	bookingId: string
+): Promise<void> {
+	const { error } = await supabase
+		.from('bookings')
+		.update({ status: 'checked_out' })
+		.eq('id', bookingId);
+
+	if (error) {
+		throw new Error(`checkOutBooking failed: ${error.message}`);
+	}
+}

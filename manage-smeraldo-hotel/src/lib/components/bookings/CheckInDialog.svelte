@@ -148,14 +148,14 @@
 					type="button"
 					onclick={onclose}
 					disabled={$submitting}
-					class="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 font-sans text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
-				>
+					class="min-h-[48px] flex-1 rounded-lg border border-gray-300 px-4 py-2.5 font-sans text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
+					>
 					Hủy
-				</button>
-				<button
+					</button>
+					<button
 					type="submit"
 					disabled={$submitting}
-					class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
+					class="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"
 				>
 					{#if $submitting}
 						<span

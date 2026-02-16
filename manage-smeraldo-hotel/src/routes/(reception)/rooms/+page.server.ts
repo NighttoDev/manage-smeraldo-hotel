@@ -4,9 +4,9 @@ import { zod4 } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 import type { Actions, PageServerLoad } from './$types';
 import { getAllRooms, updateRoomStatus, getRoomById, insertRoomStatusLog } from '$lib/server/db/rooms';
-import type { RoomStatus } from '$lib/server/db/rooms';
-import { getTodaysBookings, checkInBooking, getBookingById } from '$lib/server/db/bookings';
-import { CheckInSchema } from '$lib/db/schema';
+import { getTodaysBookings, checkInBooking, getBookingById, getOccupiedBookings, checkOutBooking } from '$lib/server/db/bookings';
+import { CheckInSchema, CheckOutSchema, RoomStatusSchema } from '$lib/db/schema';
+import type { RoomStatus } from '$lib/db/schema';
 
 /** Returns YYYY-MM-DD in Vietnam timezone (UTC+7) */
 function dateInVN(): string {
@@ -15,20 +15,22 @@ function dateInVN(): string {
 
 const OverrideStatusSchema = z.object({
 	room_id: z.string().uuid(),
-	new_status: z.enum(['available', 'occupied', 'checking_out_today', 'being_cleaned', 'ready'])
+	new_status: RoomStatusSchema
 });
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const today = dateInVN();
 
-	const [rooms, todaysBookings, overrideForm, checkInForm] = await Promise.all([
+	const [rooms, todaysBookings, occupiedBookings, overrideForm, checkInForm, checkOutForm] = await Promise.all([
 		getAllRooms(locals.supabase),
 		getTodaysBookings(locals.supabase, today),
+		getOccupiedBookings(locals.supabase),
 		superValidate(zod4(OverrideStatusSchema)),
-		superValidate(zod4(CheckInSchema))
+		superValidate(zod4(CheckInSchema)),
+		superValidate(zod4(CheckOutSchema))
 	]);
 
-	return { rooms, todaysBookings, overrideForm, checkInForm };
+	return { rooms, todaysBookings, occupiedBookings, overrideForm, checkInForm, checkOutForm };
 };
 
 export const actions: Actions = {
@@ -139,5 +141,69 @@ export const actions: Actions = {
 		}
 
 		return message(form, { type: 'success', text: 'Check-in thành công' });
+	},
+
+	checkOut: async ({ locals, request }) => {
+		const form = await superValidate(request, zod4(CheckOutSchema));
+
+		if (!form.valid) {
+			return fail(400, { checkOutForm: form });
+		}
+
+		const { booking_id, room_id } = form.data;
+
+		const { user } = await locals.safeGetSession();
+		if (!user) {
+			return message(form, { type: 'error', text: 'Phiên đăng nhập hết hạn' }, { status: 401 });
+		}
+
+		// Verify booking exists and belongs to this room
+		const booking = await getBookingById(locals.supabase, booking_id);
+		if (!booking) {
+			return message(form, { type: 'error', text: 'Không tìm thấy đặt phòng' }, { status: 404 });
+		}
+		if (booking.room_id !== room_id) {
+			return message(
+				form,
+				{ type: 'error', text: 'Đặt phòng không khớp với phòng được chọn' },
+				{ status: 400 }
+			);
+		}
+		if (booking.status !== 'checked_in') {
+			return message(
+				form,
+				{ type: 'error', text: 'Đặt phòng không ở trạng thái có thể trả phòng' },
+				{ status: 400 }
+			);
+		}
+
+		// Idempotency guard — room must be occupied
+		const room = await getRoomById(locals.supabase, room_id);
+		if (!room) {
+			return message(form, { type: 'error', text: 'Không tìm thấy phòng' }, { status: 404 });
+		}
+		if (room.status !== 'occupied') {
+			return message(
+				form,
+				{ type: 'error', text: 'Phòng không ở trạng thái có khách' },
+				{ status: 409 }
+			);
+		}
+
+		try {
+			// Step 1: mark booking as checked_out
+			await checkOutBooking(locals.supabase, booking_id);
+
+			// Step 2: transition room to being_cleaned, clear guest name (triggers Realtime)
+			await updateRoomStatus(locals.supabase, room_id, 'being_cleaned', null);
+
+			// Step 3: audit trail
+			await insertRoomStatusLog(locals.supabase, room_id, room.status, 'being_cleaned', user.id);
+		} catch (err) {
+			const errorMessage = err instanceof Error ? err.message : 'Không thể trả phòng';
+			return message(form, { type: 'error', text: errorMessage }, { status: 500 });
+		}
+
+		return message(form, { type: 'success', text: 'Trả phòng thành công' });
 	}
 };

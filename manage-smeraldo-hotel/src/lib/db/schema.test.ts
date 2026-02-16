@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	AttendanceLogSchema,
 	CheckInSchema,
+	CheckOutSchema,
 	CreateBookingFormSchema,
 	CreateStaffSchema,
 	UpdateStaffSchema
@@ -320,6 +321,48 @@ describe('CheckInSchema', () => {
 
 	it('rejects invalid check_in_date format', () => {
 		const result = CheckInSchema.safeParse({ ...validCheckIn, check_in_date: '16/02/2026' });
+		expect(result.success).toBe(false);
+	});
+});
+
+// ── CheckOutSchema ────────────────────────────────────────────────────────────
+
+describe('CheckOutSchema', () => {
+	it('accepts valid booking_id and room_id', () => {
+		const result = CheckOutSchema.safeParse({
+			booking_id: '550e8400-e29b-41d4-a716-446655440000',
+			room_id: '550e8400-e29b-41d4-a716-446655440001'
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('rejects missing booking_id', () => {
+		const result = CheckOutSchema.safeParse({
+			room_id: '550e8400-e29b-41d4-a716-446655440001'
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects non-UUID booking_id', () => {
+		const result = CheckOutSchema.safeParse({
+			booking_id: 'not-a-uuid',
+			room_id: '550e8400-e29b-41d4-a716-446655440001'
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects missing room_id', () => {
+		const result = CheckOutSchema.safeParse({
+			booking_id: '550e8400-e29b-41d4-a716-446655440000'
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects non-UUID room_id', () => {
+		const result = CheckOutSchema.safeParse({
+			booking_id: '550e8400-e29b-41d4-a716-446655440000',
+			room_id: 'invalid'
+		});
 		expect(result.success).toBe(false);
 	});
 });

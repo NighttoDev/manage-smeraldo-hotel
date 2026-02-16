@@ -7,6 +7,7 @@
 	import RoomStatusStrip from '$lib/components/rooms/RoomStatusStrip.svelte';
 	import StatusOverrideDialog from '$lib/components/rooms/StatusOverrideDialog.svelte';
 	import CheckInDialog from '$lib/components/bookings/CheckInDialog.svelte';
+	import CheckOutDialog from '$lib/components/bookings/CheckOutDialog.svelte';
 	import { initRoomState, roomListStore } from '$lib/stores/roomState';
 	import type { RoomState, RoomStatus } from '$lib/stores/roomState';
 	import type { BookingWithGuest } from '$lib/db/schema';
@@ -34,6 +35,10 @@
 
 	// Check-in dialog state
 	let checkInBooking = $state<BookingWithGuest | null>(null);
+
+	// Check-out dialog state
+	let checkOutBooking = $state<BookingWithGuest | null>(null);
+	let checkOutRoomNumber = $state('');
 
 	// Read rooms from store for live Realtime updates
 	let allRooms = $derived($roomListStore);
@@ -70,14 +75,23 @@
 	});
 
 	function handleRoomClick(roomId: string) {
-		// Check if this room has a confirmed booking arriving today
-		const booking = data.todaysBookings.find((b) => b.room_id === roomId) ?? null;
-		if (booking) {
-			checkInBooking = booking;
-		} else {
-			const room = allRooms.find((r) => r.id === roomId);
-			if (room) selectedRoom = room;
+		// Priority 1: Check-in (confirmed booking arriving today)
+		const checkIn = data.todaysBookings.find((b) => b.room_id === roomId) ?? null;
+		if (checkIn) {
+			checkInBooking = checkIn;
+			return;
 		}
+		// Priority 2: Check-out (occupied room with checked_in booking)
+		const checkOut = data.occupiedBookings.find((b) => b.room_id === roomId) ?? null;
+		if (checkOut) {
+			const room = allRooms.find((r) => r.id === roomId);
+			checkOutBooking = checkOut;
+			checkOutRoomNumber = room?.room_number ?? '';
+			return;
+		}
+		// Priority 3: Status override (fallback)
+		const room = allRooms.find((r) => r.id === roomId);
+		if (room) selectedRoom = room;
 	}
 
 	function handleOverrideConfirm(roomId: string, newStatus: RoomStatus) {
@@ -175,4 +189,12 @@
 	booking={checkInBooking}
 	checkInForm={data.checkInForm}
 	onclose={() => (checkInBooking = null)}
+/>
+
+<!-- Check-out dialog -->
+<CheckOutDialog
+	booking={checkOutBooking}
+	roomNumber={checkOutRoomNumber}
+	checkOutForm={data.checkOutForm}
+	onclose={() => (checkOutBooking = null)}
 />

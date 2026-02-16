@@ -5,7 +5,9 @@ import {
 	getBookingsByRoom,
 	getAllBookings,
 	getTodaysBookings,
-	checkInBooking
+	checkInBooking,
+	getOccupiedBookings,
+	checkOutBooking
 } from './bookings';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -317,5 +319,77 @@ describe('checkInBooking', () => {
 		await expect(
 			checkInBooking(supabase, 'booking-uuid-bad', 'guest-uuid-1', 'Name')
 		).rejects.toThrow('checkInBooking: booking update failed: Booking not found');
+	});
+});
+
+// ── getOccupiedBookings ───────────────────────────────────────────────────────
+
+describe('getOccupiedBookings', () => {
+	const mockRows = [
+		{
+			id: 'booking-uuid-1',
+			room_id: 'room-uuid-1',
+			guest_id: 'guest-uuid-1',
+			check_in_date: '2026-02-16',
+			check_out_date: '2026-02-18',
+			nights_count: 2,
+			booking_source: 'agoda',
+			status: 'checked_in',
+			created_by: 'staff-uuid-1',
+			created_at: '2026-02-01T00:00:00Z',
+			updated_at: '2026-02-01T00:00:00Z',
+			guest: { id: 'guest-uuid-1', full_name: 'Nguyễn Văn A' }
+		}
+	];
+
+	it('returns all checked-in bookings with guest data', async () => {
+		mockEq.mockResolvedValue({ data: mockRows, error: null });
+
+		const supabase = makeMockSupabase();
+		const result = await getOccupiedBookings(supabase);
+
+		expect(result).toHaveLength(1);
+		expect(result[0].status).toBe('checked_in');
+		expect(result[0].guest.full_name).toBe('Nguyễn Văn A');
+	});
+
+	it('returns empty array when no checked-in bookings', async () => {
+		mockEq.mockResolvedValue({ data: null, error: null });
+
+		const supabase = makeMockSupabase();
+		const result = await getOccupiedBookings(supabase);
+
+		expect(result).toEqual([]);
+	});
+
+	it('throws on Supabase error', async () => {
+		mockEq.mockResolvedValue({ data: null, error: { message: 'DB error' } });
+
+		const supabase = makeMockSupabase();
+		await expect(getOccupiedBookings(supabase)).rejects.toThrow(
+			'getOccupiedBookings failed: DB error'
+		);
+	});
+});
+
+// ── checkOutBooking ───────────────────────────────────────────────────────────
+
+describe('checkOutBooking', () => {
+	it('updates booking status to checked_out', async () => {
+		mockEq.mockResolvedValue({ data: null, error: null });
+
+		const supabase = makeMockSupabase();
+		await expect(checkOutBooking(supabase, 'booking-uuid-1')).resolves.toBeUndefined();
+
+		expect(mockUpdate).toHaveBeenCalledWith({ status: 'checked_out' });
+	});
+
+	it('throws when Supabase returns an error', async () => {
+		mockEq.mockResolvedValue({ data: null, error: { message: 'Booking not found' } });
+
+		const supabase = makeMockSupabase();
+		await expect(checkOutBooking(supabase, 'booking-uuid-bad')).rejects.toThrow(
+			'checkOutBooking failed: Booking not found'
+		);
 	});
 });
