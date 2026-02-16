@@ -1,6 +1,6 @@
 # Story 3.2: Guest Check-In Flow
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,13 +24,13 @@ so that I can complete check-in in under 90 seconds without opening a spreadshee
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Add `checkInBooking()` and `getTodaysBookingForRoom()` to `bookings.ts`** (AC: #2, #3)
-  - [ ] Add `getTodaysBookingForRoom(supabase, roomId, todayDate): Promise<BookingWithGuest | null>` — queries `bookings` joined with `guests` where `room_id = roomId AND status = 'confirmed' AND check_in_date = todayDate`; returns `null` if no booking found
-  - [ ] Add `checkInBooking(supabase, bookingId, guestName): Promise<void>` — updates booking `status = 'checked_in'`; also updates `guests.full_name = guestName` if guest name was edited
-  - [ ] Define `BookingWithGuest` interface extending `BookingRow` with nested `guest: { id: string; full_name: string }` from the join
+- [x] **Task 1: Add `checkInBooking()` and `getTodaysBookingForRoom()` to `bookings.ts`** (AC: #2, #3)
+  - [x] Add `getTodaysBookingForRoom(supabase, roomId, todayDate): Promise<BookingWithGuest | null>` — queries `bookings` joined with `guests` where `room_id = roomId AND status = 'confirmed' AND check_in_date = todayDate`; returns `null` if no booking found
+  - [x] Add `checkInBooking(supabase, bookingId, guestName): Promise<void>` — updates booking `status = 'checked_in'`; also updates `guests.full_name = guestName` if guest name was edited
+  - [x] Define `BookingWithGuest` interface extending `BookingRow` with nested `guest: { id: string; full_name: string }` from the join
 
-- [ ] **Task 2: Add `CheckInSchema` to `schema.ts`** (AC: #2, #3)
-  - [ ] Add form schema for Superforms validation (keep separate from DB `BookingSchema`):
+- [x] **Task 2: Add `CheckInSchema` to `schema.ts`** (AC: #2, #3)
+  - [x] Add form schema for Superforms validation (keep separate from DB `BookingSchema`):
     ```typescript
     export const CheckInSchema = z.object({
       booking_id: z.string().uuid({ error: 'Booking ID không hợp lệ' }),
@@ -42,40 +42,40 @@ so that I can complete check-in in under 90 seconds without opening a spreadshee
     export type CheckIn = z.infer<typeof CheckInSchema>;
     ```
 
-- [ ] **Task 3: Extend `rooms/+page.server.ts` with `?/checkIn` action and today's bookings** (AC: #1, #2, #3, #4)
-  - [ ] In `load`: add call to fetch today's confirmed bookings per room — `getTodaysBookingForRoom` is called per-room or a bulk query is used; simpler approach: load ALL `confirmed` bookings where `check_in_date = todayVN()`, return as `todaysBookings: BookingWithGuest[]`; `superValidate(zod4(CheckInSchema))` for the new dialog form — store as `checkInForm`
-  - [ ] Add `?/checkIn` Form Action in `rooms/+page.server.ts`:
+- [x] **Task 3: Extend `rooms/+page.server.ts` with `?/checkIn` action and today's bookings** (AC: #1, #2, #3, #4)
+  - [x] In `load`: add call to fetch today's confirmed bookings per room — `getTodaysBookingForRoom` is called per-room or a bulk query is used; simpler approach: load ALL `confirmed` bookings where `check_in_date = todayVN()`, return as `todaysBookings: BookingWithGuest[]`; `superValidate(zod4(CheckInSchema))` for the new dialog form — store as `checkInForm`
+  - [x] Add `?/checkIn` Form Action in `rooms/+page.server.ts`:
     1. `superValidate(request, zod4(CheckInSchema))` — fail 400 if invalid
     2. `safeGetSession()` — fail 401 if no user
     3. `checkInBooking(supabase, booking_id, guest_name)` — update booking + guest name
     4. `updateRoomStatus(supabase, room_id, 'occupied', guest_name)` — updates `rooms.status` + `rooms.current_guest_name`
     5. `insertRoomStatusLog(supabase, room_id, previousStatus, 'occupied', user.id)` — audit trail
     6. Return `message(form, { type: 'success', text: 'Check-in thành công' })` — no redirect (dialog closes on success, Realtime updates tile)
-  - [ ] Use `getRoomById` (already exists) to get `previousStatus` for the log
+  - [x] Use `getRoomById` (already exists) to get `previousStatus` for the log
 
-- [ ] **Task 4: Create `CheckInDialog.svelte` component** (AC: #1, #2, #3, #4)
-  - [ ] Create `src/lib/components/bookings/CheckInDialog.svelte`
-  - [ ] Props: `booking: BookingWithGuest | null`, `checkInForm: SuperValidated<CheckIn>`, `onclose: () => void`
-  - [ ] Pattern: same fixed-position dialog as `StatusOverrideDialog.svelte` — backdrop + modal `role="dialog"` + `aria-modal`
-  - [ ] Uses Superforms: `const { form: formData, errors, enhance, submitting, message } = superForm(checkInForm, { validators: zod4(CheckInSchema), onUpdated: ({ form }) => { if (form.message?.type === 'success') onclose(); } })`
-  - [ ] Hidden fields: `booking_id` and `room_id` (pre-filled from `booking` prop, not user-editable)
-  - [ ] Guest name: editable text input (pre-filled from `booking.guest.full_name`), shows `$errors.guest_name` on blur
-  - [ ] Read-only display: check-in date, check-out date (formatted `vi-VN`), nights count, booking source badge
-  - [ ] Submit button: disabled + spinner when `$submitting`; label "Xác nhận check-in"
-  - [ ] Cancel button: calls `onclose()`, disabled when `$submitting`
-  - [ ] Server message: show `$message.text` in red (error) or green (success) banner at top of dialog
-  - [ ] Only rendered when `booking !== null` (guard with `{#if booking}`)
+- [x] **Task 4: Create `CheckInDialog.svelte` component** (AC: #1, #2, #3, #4)
+  - [x] Create `src/lib/components/bookings/CheckInDialog.svelte`
+  - [x] Props: `booking: BookingWithGuest | null`, `checkInForm: SuperValidated<CheckIn>`, `onclose: () => void`
+  - [x] Pattern: same fixed-position dialog as `StatusOverrideDialog.svelte` — backdrop + modal `role="dialog"` + `aria-modal`
+  - [x] Uses Superforms: `const { form: formData, errors, enhance, submitting, message } = superForm(checkInForm, { validators: zod4(CheckInSchema), onUpdated: ({ form }) => { if (form.message?.type === 'success') onclose(); } })`
+  - [x] Hidden fields: `booking_id` and `room_id` (pre-filled from `booking` prop, not user-editable)
+  - [x] Guest name: editable text input (pre-filled from `booking.guest.full_name`), shows `$errors.guest_name` on blur
+  - [x] Read-only display: check-in date, check-out date (formatted `vi-VN`), nights count, booking source badge
+  - [x] Submit button: disabled + spinner when `$submitting`; label "Xác nhận check-in"
+  - [x] Cancel button: calls `onclose()`, disabled when `$submitting`
+  - [x] Server message: show `$message.text` in red (error) or green (success) banner at top of dialog
+  - [x] Only rendered when `booking !== null` (guard with `{#if booking}`)
 
-- [ ] **Task 5: Wire `CheckInDialog` into `rooms/+page.svelte`** (AC: #1, #2, #5)
-  - [ ] Import `CheckInDialog` and add `checkInForm` from `data`
-  - [ ] Add `checkInBooking = $state<BookingWithGuest | null>(null)` for the selected booking
-  - [ ] On room tile click: lookup `data.todaysBookings.find(b => b.room_id === room.id)` — if a confirmed booking exists for that room, set `checkInBooking = booking` (opens CheckInDialog); else set `selectedRoom = room` (opens existing StatusOverrideDialog)
-  - [ ] Render `<CheckInDialog booking={checkInBooking} checkInForm={data.checkInForm} onclose={() => (checkInBooking = null)} />` alongside existing `<StatusOverrideDialog>`
-  - [ ] After successful check-in, `checkInBooking = null` is called via `onclose` — `roomStateStore` updates automatically via existing Realtime subscription
+- [x] **Task 5: Wire `CheckInDialog` into `rooms/+page.svelte`** (AC: #1, #2, #5)
+  - [x] Import `CheckInDialog` and add `checkInForm` from `data`
+  - [x] Add `checkInBooking = $state<BookingWithGuest | null>(null)` for the selected booking
+  - [x] On room tile click: lookup `data.todaysBookings.find(b => b.room_id === room.id)` — if a confirmed booking exists for that room, set `checkInBooking = booking` (opens CheckInDialog); else set `selectedRoom = room` (opens existing StatusOverrideDialog)
+  - [x] Render `<CheckInDialog booking={checkInBooking} checkInForm={data.checkInForm} onclose={() => (checkInBooking = null)} />` alongside existing `<StatusOverrideDialog>`
+  - [x] After successful check-in, `checkInBooking = null` is called via `onclose` — `roomStateStore` updates automatically via existing Realtime subscription
 
-- [ ] **Task 6: Unit tests** (AC: all)
-  - [ ] `bookings.test.ts` additions — test `checkInBooking()`: success case, booking not found error; test `getTodaysBookingForRoom()`: returns booking with guest, returns null when none, throws on DB error
-  - [ ] `schema.test.ts` additions — test `CheckInSchema`: valid data passes, empty guest_name fails, invalid UUIDs fail
+- [x] **Task 6: Unit tests** (AC: all)
+  - [x] `bookings.test.ts` additions — test `checkInBooking()`: success case, booking not found error; test `getTodaysBookingForRoom()`: returns booking with guest, returns null when none, throws on DB error
+  - [x] `schema.test.ts` additions — test `CheckInSchema`: valid data passes, empty guest_name fails, invalid UUIDs fail
 
 ## Dev Notes
 
@@ -201,4 +201,19 @@ claude-sonnet-4-5-20250929
 
 ### Completion Notes List
 
+- All 6 tasks implemented. 152/152 tests passing.
+- `getTodaysBookings()` (bulk) used in `load` rather than per-room `getTodaysBookingForRoom()` — more efficient single query.
+- `BookingWithGuest` interface added to `bookings.ts` with re-exported `BookingSource`.
+- `CheckInDialog.svelte` uses `$effect` to sync form fields when `booking` prop changes (reactive to `handleRoomClick`).
+- Room tile click routing: checks `data.todaysBookings` first; opens `CheckInDialog` if booking found, else `StatusOverrideDialog`.
+- VN-timezone date: `dateInVN()` helper using `Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })`.
+
 ### File List
+
+- `manage-smeraldo-hotel/src/lib/server/db/bookings.ts` (modified — added `BookingWithGuest`, `getTodaysBookingForRoom`, `getTodaysBookings`, `checkInBooking`)
+- `manage-smeraldo-hotel/src/lib/db/schema.ts` (modified — added `CheckInSchema`, `CheckIn` type)
+- `manage-smeraldo-hotel/src/routes/(reception)/rooms/+page.server.ts` (modified — extended `load`, added `?/checkIn` action)
+- `manage-smeraldo-hotel/src/lib/components/bookings/CheckInDialog.svelte` (new)
+- `manage-smeraldo-hotel/src/routes/(reception)/rooms/+page.svelte` (modified — wired `CheckInDialog`)
+- `manage-smeraldo-hotel/src/lib/server/db/bookings.test.ts` (modified — added 9 new tests)
+- `manage-smeraldo-hotel/src/lib/db/schema.test.ts` (modified — added 6 new `CheckInSchema` tests)

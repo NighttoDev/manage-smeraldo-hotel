@@ -6,8 +6,10 @@
 	import MonthlyCalendarView from '$lib/components/rooms/MonthlyCalendarView.svelte';
 	import RoomStatusStrip from '$lib/components/rooms/RoomStatusStrip.svelte';
 	import StatusOverrideDialog from '$lib/components/rooms/StatusOverrideDialog.svelte';
+	import CheckInDialog from '$lib/components/bookings/CheckInDialog.svelte';
 	import { initRoomState, roomListStore } from '$lib/stores/roomState';
 	import type { RoomState, RoomStatus } from '$lib/stores/roomState';
+	import type { BookingWithGuest } from '$lib/server/db/bookings';
 	import type { PageData } from './$types';
 
 	interface Props {
@@ -29,6 +31,9 @@
 
 	// Override dialog state
 	let selectedRoom = $state<RoomState | null>(null);
+
+	// Check-in dialog state
+	let checkInBooking = $state<BookingWithGuest | null>(null);
 
 	// Read rooms from store for live Realtime updates
 	let allRooms = $derived($roomListStore);
@@ -65,9 +70,13 @@
 	});
 
 	function handleRoomClick(roomId: string) {
-		const room = allRooms.find((r) => r.id === roomId);
-		if (room) {
-			selectedRoom = room;
+		// Check if this room has a confirmed booking arriving today
+		const booking = data.todaysBookings.find((b) => b.room_id === roomId) ?? null;
+		if (booking) {
+			checkInBooking = booking;
+		} else {
+			const room = allRooms.find((r) => r.id === roomId);
+			if (room) selectedRoom = room;
 		}
 	}
 
@@ -159,4 +168,11 @@
 	room={selectedRoom}
 	onconfirm={handleOverrideConfirm}
 	oncancel={handleOverrideCancel}
+/>
+
+<!-- Check-in dialog -->
+<CheckInDialog
+	booking={checkInBooking}
+	checkInForm={data.checkInForm}
+	onclose={() => (checkInBooking = null)}
 />

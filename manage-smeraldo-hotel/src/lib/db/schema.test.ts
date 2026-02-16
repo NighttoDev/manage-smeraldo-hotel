@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { AttendanceLogSchema, CreateBookingFormSchema, CreateStaffSchema, UpdateStaffSchema } from './schema';
+import {
+	AttendanceLogSchema,
+	CheckInSchema,
+	CreateBookingFormSchema,
+	CreateStaffSchema,
+	UpdateStaffSchema
+} from './schema';
 
 // ── CreateStaffSchema ─────────────────────────────────────────────────────────
 
@@ -255,6 +261,65 @@ describe('CreateBookingFormSchema', () => {
 			...validBase,
 			booking_source: 'airbnb' as never
 		});
+		expect(result.success).toBe(false);
+	});
+});
+
+// ── CheckInSchema ─────────────────────────────────────────────────────────────
+
+describe('CheckInSchema', () => {
+	const validCheckIn = {
+		booking_id: '550e8400-e29b-41d4-a716-446655440000',
+		room_id: '550e8400-e29b-41d4-a716-446655440001',
+		guest_id: '550e8400-e29b-41d4-a716-446655440002',
+		guest_name: 'Nguyễn Văn A',
+		check_in_date: '2026-02-16',
+		check_out_date: '2026-02-18'
+	};
+
+	it('accepts valid check-in data', () => {
+		const result = CheckInSchema.safeParse(validCheckIn);
+		expect(result.success).toBe(true);
+	});
+
+	it('rejects empty guest_name', () => {
+		const result = CheckInSchema.safeParse({ ...validCheckIn, guest_name: '' });
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const err = result.error.issues.find((e) => e.path[0] === 'guest_name');
+			expect(err).toBeDefined();
+		}
+	});
+
+	it('rejects invalid booking_id UUID', () => {
+		const result = CheckInSchema.safeParse({ ...validCheckIn, booking_id: 'not-a-uuid' });
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const err = result.error.issues.find((e) => e.path[0] === 'booking_id');
+			expect(err).toBeDefined();
+		}
+	});
+
+	it('rejects invalid room_id UUID', () => {
+		const result = CheckInSchema.safeParse({ ...validCheckIn, room_id: 'not-a-uuid' });
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const err = result.error.issues.find((e) => e.path[0] === 'room_id');
+			expect(err).toBeDefined();
+		}
+	});
+
+	it('rejects invalid guest_id UUID', () => {
+		const result = CheckInSchema.safeParse({ ...validCheckIn, guest_id: 'not-a-uuid' });
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const err = result.error.issues.find((e) => e.path[0] === 'guest_id');
+			expect(err).toBeDefined();
+		}
+	});
+
+	it('rejects invalid check_in_date format', () => {
+		const result = CheckInSchema.safeParse({ ...validCheckIn, check_in_date: '16/02/2026' });
 		expect(result.success).toBe(false);
 	});
 });

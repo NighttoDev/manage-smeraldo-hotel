@@ -28,6 +28,14 @@ export interface BookingInsert {
 	created_by: string;
 }
 
+/** BookingRow with nested guest (from Supabase join on guests table). */
+export interface BookingWithGuest extends BookingRow {
+	guest: {
+		id: string;
+		full_name: string;
+	};
+}
+
 /**
  * Create a new booking. Returns the created row.
  * ⚠️ Do NOT include nights_count — it is GENERATED ALWAYS in Postgres.
@@ -55,6 +63,82 @@ export async function createBooking(
 	}
 
 	return booking as BookingRow;
+}
+
+/**
+ * Fetch the confirmed booking for a specific room arriving on todayDate.
+ * Returns null if no such booking exists.
+ * Uses Supabase join to include guest.full_name in one query.
+ */
+export async function getTodaysBookingForRoom(
+	supabase: SupabaseClient,
+	roomId: string,
+	todayDate: string // YYYY-MM-DD in VN timezone
+): Promise<BookingWithGuest | null> {
+	const { data, error } = await supabase
+		.from('bookings')
+		.select('*, guest:guests(id, full_name)')
+		.eq('room_id', roomId)
+		.eq('status', 'confirmed')
+		.eq('check_in_date', todayDate)
+		.maybeSingle();
+
+	if (error) {
+		throw new Error(`getTodaysBookingForRoom failed: ${error.message}`);
+	}
+
+	return data as BookingWithGuest | null;
+}
+
+/**
+ * Fetch all confirmed bookings arriving today, for all rooms.
+ * Used by the room diagram page to show which rooms have a check-in today.
+ */
+export async function getTodaysBookings(
+	supabase: SupabaseClient,
+	todayDate: string // YYYY-MM-DD in VN timezone
+): Promise<BookingWithGuest[]> {
+	const { data, error } = await supabase
+		.from('bookings')
+		.select('*, guest:guests(id, full_name)')
+		.eq('status', 'confirmed')
+		.eq('check_in_date', todayDate);
+
+	if (error) {
+		throw new Error(`getTodaysBookings failed: ${error.message}`);
+	}
+
+	return (data ?? []) as BookingWithGuest[];
+}
+
+/**
+ * Mark a booking as checked_in and update the guest's full_name if it was edited.
+ */
+export async function checkInBooking(
+	supabase: SupabaseClient,
+	bookingId: string,
+	guestId: string,
+	guestName: string
+): Promise<void> {
+	// Update guest name first (if reception edited it in the dialog)
+	const { error: guestError } = await supabase
+		.from('guests')
+		.update({ full_name: guestName })
+		.eq('id', guestId);
+
+	if (guestError) {
+		throw new Error(`checkInBooking: guest update failed: ${guestError.message}`);
+	}
+
+	// Mark booking as checked_in
+	const { error: bookingError } = await supabase
+		.from('bookings')
+		.update({ status: 'checked_in' })
+		.eq('id', bookingId);
+
+	if (bookingError) {
+		throw new Error(`checkInBooking: booking update failed: ${bookingError.message}`);
+	}
 }
 
 /**

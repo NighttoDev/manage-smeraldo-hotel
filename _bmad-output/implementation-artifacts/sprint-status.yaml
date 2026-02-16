@@ -57,27 +57,27 @@ development_status:
 
   epic-3: in-progress
   3-1-create-a-new-booking: done
-  3-2-guest-check-in-flow: ready-for-dev
+  3-2-guest-check-in-flow: review
   3-3-guest-check-out-flow: backlog
   3-4-booking-management-edit-cancel: backlog
   3-5-guest-record-creation-display: backlog
   epic-3-retrospective: optional
 
-  epic-4: in-progress
-  4-1-log-daily-attendance-for-all-staff: review
-  4-2-monthly-attendance-calculation-summary-report: review
-  4-3-manager-attendance-edit: review
+  epic-4: done
+  4-1-log-daily-attendance-for-all-staff: done
+  4-2-monthly-attendance-calculation-summary-report: done
+  4-3-manager-attendance-edit: done
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-1-view-current-stock-levels: backlog
+  epic-5: in-progress
+  5-1-view-current-stock-levels: in-progress
   5-2-log-stock-in-stock-out-events: backlog
   5-3-low-stock-threshold-configuration: backlog
   5-4-stock-movement-history-inventory-summary-report: backlog
   epic-5-retrospective: optional
 
-  epic-6: backlog
-  6-1-todays-occupancy-attendance-dashboard: backlog
+  epic-6: in-progress
+  6-1-todays-occupancy-attendance-dashboard: ready-for-dev
   6-2-monthly-occupancy-report: backlog
   6-3-monthly-attendance-report-for-all-staff: backlog
   6-4-monthly-inventory-usage-summary-report: backlog

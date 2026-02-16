@@ -1,12 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createBooking, getBookingsByRoom, getAllBookings } from './bookings';
+import {
+	createBooking,
+	getBookingsByRoom,
+	getAllBookings,
+	getTodaysBookingForRoom,
+	getTodaysBookings,
+	checkInBooking
+} from './bookings';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
 const mockSingle = vi.fn();
+const mockMaybeSingle = vi.fn();
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
+const mockUpdate = vi.fn();
 const mockEq = vi.fn();
 const mockIn = vi.fn();
 const mockOrder = vi.fn();
@@ -15,7 +24,8 @@ function makeMockSupabase(): SupabaseClient {
 	return {
 		from: vi.fn(() => ({
 			insert: mockInsert,
-			select: mockSelect
+			select: mockSelect,
+			update: mockUpdate
 		}))
 	} as unknown as SupabaseClient;
 }
@@ -24,14 +34,16 @@ beforeEach(() => {
 	vi.resetAllMocks();
 	// insert chain: .insert().select().single()
 	mockInsert.mockReturnValue({ select: mockSelect });
-	// select chain: .select().eq().in().order()
+	// update chain: .update().eq()
+	mockUpdate.mockReturnValue({ eq: mockEq });
+	// select chain: .select().eq().in().order() / .maybySingle()
 	mockSelect.mockReturnValue({
 		single: mockSingle,
 		eq: mockEq,
 		in: mockIn,
 		order: mockOrder
 	});
-	mockEq.mockReturnValue({ in: mockIn, order: mockOrder });
+	mockEq.mockReturnValue({ in: mockIn, order: mockOrder, eq: mockEq, maybeSingle: mockMaybeSingle });
 	mockIn.mockReturnValue({ order: mockOrder });
 	mockOrder.mockReturnValue({ order: mockOrder });
 });
@@ -163,5 +175,149 @@ describe('getAllBookings', () => {
 
 		const supabase = makeMockSupabase();
 		await expect(getAllBookings(supabase)).rejects.toThrow('getAllBookings failed: Query error');
+	});
+});
+
+// ── getTodaysBookingForRoom ────────────────────────────────────────────────────
+
+describe('getTodaysBookingForRoom', () => {
+	const mockBookingWithGuest = {
+		id: 'booking-uuid-1',
+		room_id: 'room-uuid-1',
+		guest_id: 'guest-uuid-1',
+		check_in_date: '2026-02-16',
+		check_out_date: '2026-02-18',
+		nights_count: 2,
+		booking_source: 'agoda',
+		status: 'confirmed',
+		created_by: 'staff-uuid-1',
+		created_at: '2026-02-01T00:00:00Z',
+		updated_at: '2026-02-01T00:00:00Z',
+		guest: { id: 'guest-uuid-1', full_name: 'Nguyễn Văn A' }
+	};
+
+	it('returns a booking with guest when found', async () => {
+		// Chain: .select().eq().eq().eq().maybySingle()
+		mockEq.mockReturnValue({ eq: mockEq, maybeSingle: mockMaybeSingle });
+		mockMaybeSingle.mockResolvedValue({ data: mockBookingWithGuest, error: null });
+
+		const supabase = makeMockSupabase();
+		const result = await getTodaysBookingForRoom(supabase, 'room-uuid-1', '2026-02-16');
+
+		expect(result).not.toBeNull();
+		expect(result?.guest.full_name).toBe('Nguyễn Văn A');
+		expect(result?.room_id).toBe('room-uuid-1');
+	});
+
+	it('returns null when no booking found', async () => {
+		mockEq.mockReturnValue({ eq: mockEq, maybeSingle: mockMaybeSingle });
+		mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+
+		const supabase = makeMockSupabase();
+		const result = await getTodaysBookingForRoom(supabase, 'room-uuid-no-booking', '2026-02-16');
+
+		expect(result).toBeNull();
+	});
+
+	it('throws on Supabase error', async () => {
+		mockEq.mockReturnValue({ eq: mockEq, maybeSingle: mockMaybeSingle });
+		mockMaybeSingle.mockResolvedValue({ data: null, error: { message: 'DB error' } });
+
+		const supabase = makeMockSupabase();
+		await expect(
+			getTodaysBookingForRoom(supabase, 'room-uuid-1', '2026-02-16')
+		).rejects.toThrow('getTodaysBookingForRoom failed: DB error');
+	});
+});
+
+// ── getTodaysBookings ──────────────────────────────────────────────────────────
+
+describe('getTodaysBookings', () => {
+	const mockRows = [
+		{
+			id: 'booking-uuid-1',
+			room_id: 'room-uuid-1',
+			guest_id: 'guest-uuid-1',
+			check_in_date: '2026-02-16',
+			check_out_date: '2026-02-18',
+			nights_count: 2,
+			booking_source: 'agoda',
+			status: 'confirmed',
+			created_by: 'staff-uuid-1',
+			created_at: '2026-02-01T00:00:00Z',
+			updated_at: '2026-02-01T00:00:00Z',
+			guest: { id: 'guest-uuid-1', full_name: 'Nguyễn Văn A' }
+		}
+	];
+
+	it('returns all bookings arriving today', async () => {
+		// Chain: .select().eq().eq() — last eq is awaited
+		mockEq.mockReturnValueOnce({ eq: mockEq }).mockResolvedValueOnce({ data: mockRows, error: null });
+
+		const supabase = makeMockSupabase();
+		const result = await getTodaysBookings(supabase, '2026-02-16');
+
+		expect(result).toHaveLength(1);
+		expect(result[0].guest.full_name).toBe('Nguyễn Văn A');
+	});
+
+	it('returns empty array when no bookings today', async () => {
+		mockEq.mockReturnValueOnce({ eq: mockEq }).mockResolvedValueOnce({ data: null, error: null });
+
+		const supabase = makeMockSupabase();
+		const result = await getTodaysBookings(supabase, '2026-02-16');
+
+		expect(result).toEqual([]);
+	});
+
+	it('throws on Supabase error', async () => {
+		mockEq.mockReturnValueOnce({ eq: mockEq }).mockResolvedValueOnce({
+			data: null,
+			error: { message: 'Query failed' }
+		});
+
+		const supabase = makeMockSupabase();
+		await expect(getTodaysBookings(supabase, '2026-02-16')).rejects.toThrow(
+			'getTodaysBookings failed: Query failed'
+		);
+	});
+});
+
+// ── checkInBooking ────────────────────────────────────────────────────────────
+
+describe('checkInBooking', () => {
+	it('updates guest name and marks booking as checked_in', async () => {
+		// Two sequential update chains: guests.update().eq(), bookings.update().eq()
+		mockEq.mockResolvedValue({ data: null, error: null });
+
+		const supabase = makeMockSupabase();
+		await expect(
+			checkInBooking(supabase, 'booking-uuid-1', 'guest-uuid-1', 'Nguyễn Văn A')
+		).resolves.toBeUndefined();
+
+		// Both update calls were made
+		expect(mockUpdate).toHaveBeenCalledTimes(2);
+		expect(mockUpdate).toHaveBeenNthCalledWith(1, { full_name: 'Nguyễn Văn A' });
+		expect(mockUpdate).toHaveBeenNthCalledWith(2, { status: 'checked_in' });
+	});
+
+	it('throws when guest update fails', async () => {
+		mockEq.mockResolvedValueOnce({ data: null, error: { message: 'Guest not found' } });
+
+		const supabase = makeMockSupabase();
+		await expect(
+			checkInBooking(supabase, 'booking-uuid-1', 'guest-uuid-bad', 'Name')
+		).rejects.toThrow('checkInBooking: guest update failed: Guest not found');
+	});
+
+	it('throws when booking update fails', async () => {
+		mockEq
+			.mockResolvedValueOnce({ data: null, error: null }) // guest update succeeds
+			.mockResolvedValueOnce({ data: null, error: { message: 'Booking not found' } }); // booking update fails
+
+		const supabase = makeMockSupabase();
+		await expect(
+			checkInBooking(supabase, 'booking-uuid-bad', 'guest-uuid-1', 'Name')
+		).rejects.toThrow('checkInBooking: booking update failed: Booking not found');
 	});
 });

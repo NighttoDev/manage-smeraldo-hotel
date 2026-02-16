@@ -136,6 +136,19 @@ export type RoomStatusLog = z.infer<typeof RoomStatusLogSchema>;
 
 // ── Form Schemas (for Superforms validation) ──────────────────────────────────
 
+// ── Check-In Form Schema (for Superforms validation) ─────────────────────────
+
+export const CheckInSchema = z.object({
+	booking_id: z.string().uuid({ error: 'Booking ID không hợp lệ' }),
+	room_id: z.string().uuid({ error: 'Room ID không hợp lệ' }),
+	guest_id: z.string().uuid({ error: 'Guest ID không hợp lệ' }),
+	guest_name: z.string().min(1, { error: 'Tên khách không được để trống' }),
+	check_in_date: DateString,
+	check_out_date: DateString
+});
+
+export type CheckIn = z.infer<typeof CheckInSchema>;
+
 // ── Booking Form Schema (for Superforms validation) ───────────────────────────
 
 export const CreateBookingFormSchema = z
