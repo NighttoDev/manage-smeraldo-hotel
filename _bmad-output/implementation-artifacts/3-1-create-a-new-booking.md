@@ -1,6 +1,6 @@
 # Story 3.1: Create a New Booking
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -28,13 +28,13 @@ So that every arrival is recorded in the system before the guest shows up, repla
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Implement `createGuest()` and `createBooking()` server DB functions** (AC: #2)
-  - [ ] Create `src/lib/server/db/guests.ts` — implement `createGuest(data: GuestInsert): Promise<Guest>` using Supabase client from `src/lib/server/supabase.ts`
-  - [ ] Implement `createBooking()` in `src/lib/server/db/bookings.ts` — signature: `createBooking(data: BookingInsert): Promise<Booking>` — do NOT insert `nights_count` (it is `GENERATED ALWAYS`)
-  - [ ] Add `getActiveRoomsForBooking()` to `src/lib/server/db/rooms.ts` — returns all rooms with status `available` or `ready` for the room selector (query `rooms` table, ordered by `floor`, `room_number`)
+- [x] **Task 1: Implement `createGuest()` and `createBooking()` server DB functions** (AC: #2)
+  - [x]Create `src/lib/server/db/guests.ts` — implement `createGuest(data: GuestInsert): Promise<Guest>` using Supabase client from `src/lib/server/supabase.ts`
+  - [x]Implement `createBooking()` in `src/lib/server/db/bookings.ts` — signature: `createBooking(data: BookingInsert): Promise<Booking>` — do NOT insert `nights_count` (it is `GENERATED ALWAYS`)
+  - [x]Add `getActiveRoomsForBooking()` to `src/lib/server/db/rooms.ts` — returns all rooms with status `available` or `ready` for the room selector (query `rooms` table, ordered by `floor`, `room_number`)
 
-- [ ] **Task 2: Add `CreateBookingFormSchema` to `src/lib/db/schema.ts`** (AC: #5, #6)
-  - [ ] Add form-specific Zod schema for Superforms validation (separate from DB `BookingSchema`):
+- [x] **Task 2: Add `CreateBookingFormSchema` to `src/lib/db/schema.ts`** (AC: #5, #6)
+  - [x]Add form-specific Zod schema for Superforms validation (separate from DB `BookingSchema`):
     ```typescript
     export const CreateBookingFormSchema = z.object({
       guest_name: z.string().min(1, { error: 'Tên khách không được để trống' }),
@@ -53,41 +53,41 @@ So that every arrival is recorded in the system before the guest shows up, repla
     export type CreateBookingForm = z.infer<typeof CreateBookingFormSchema>;
     ```
 
-- [ ] **Task 3: Create booking routes** (AC: #1, #7)
-  - [ ] Create `src/routes/(reception)/bookings/+page.svelte` — minimal booking list page (placeholder — just a heading + "New Booking" button for this story; full list in Story 3.4)
-  - [ ] Create `src/routes/(reception)/bookings/+page.server.ts` — `load` returns empty bookings array for now (will be enhanced in 3.4); add to manager nav too
-  - [ ] Create `src/routes/(reception)/bookings/new/+page.svelte` — renders `<BookingForm {rooms} {form} />`; imports Superforms client helpers
-  - [ ] Create `src/routes/(reception)/bookings/new/+page.server.ts`:
+- [x] **Task 3: Create booking routes** (AC: #1, #7)
+  - [x]Create `src/routes/(reception)/bookings/+page.svelte` — minimal booking list page (placeholder — just a heading + "New Booking" button for this story; full list in Story 3.4)
+  - [x]Create `src/routes/(reception)/bookings/+page.server.ts` — `load` returns empty bookings array for now (will be enhanced in 3.4); add to manager nav too
+  - [x]Create `src/routes/(reception)/bookings/new/+page.svelte` — renders `<BookingForm {rooms} {form} />`; imports Superforms client helpers
+  - [x]Create `src/routes/(reception)/bookings/new/+page.server.ts`:
     - `load`: calls `getActiveRoomsForBooking()`, creates Superforms initial state via `superValidate(zod4(CreateBookingFormSchema))`; sets `check_in_date` default to today, `check_out_date` default to tomorrow (ISO format)
     - Form Action `?/submit`: validate with `superValidate`, on error return `fail(400, { form })`; on success call `createGuest({ full_name: form.data.guest_name })` then `createBooking({ room_id, guest_id, check_in_date, check_out_date, booking_source, created_by })`, compute `check_out_date` from `check_in_date + duration_days` when `is_long_stay`; redirect to `(reception)/bookings/` on success
 
-- [ ] **Task 4: Create `BookingForm.svelte` component** (AC: #1, #3, #4, #5, #6)
-  - [ ] Create `src/lib/components/bookings/BookingForm.svelte`
-  - [ ] Props: `rooms: Array<{id, room_number, floor, room_type}>`, `form: SuperValidated<CreateBookingForm>`
-  - [ ] Uses Superforms: `const { form: formData, errors, enhance, submitting } = superForm(form, { validators: zod4(CreateBookingFormSchema) })`
-  - [ ] Field: `GuestInput` — text input bound to `$formData.guest_name`, error from `$errors.guest_name`
-  - [ ] Field: Room selector — `<select bind:value={$formData.room_id}>` listing all rooms as "F{floor} — {room_number} ({room_type})"; shows error from `$errors.room_id`
-  - [ ] Field: Check-in date — `<input type="date">`, defaults to today
-  - [ ] Field: Check-out date — hidden when `$formData.is_long_stay`, defaults to tomorrow
-  - [ ] Field: Booking source — `<select>` with options Agoda / Booking.com / Trip.com / Facebook / Walk-in (values: `agoda`, `booking_com`, `trip_com`, `facebook`, `walk_in`)
-  - [ ] Long-stay toggle: `<input type="checkbox" bind:checked={$formData.is_long_stay}>` — when checked, hides `check_out_date` and shows `duration_days` (number input, min=30); auto-disables for non-apartment rooms
-  - [ ] Submit button: disabled + spinner when `$submitting`; label "Tạo đặt phòng"
-  - [ ] Validation: all field errors shown below each field on blur via Superforms `blur` strategy
+- [x] **Task 4: Create `BookingForm.svelte` component** (AC: #1, #3, #4, #5, #6)
+  - [x]Create `src/lib/components/bookings/BookingForm.svelte`
+  - [x]Props: `rooms: Array<{id, room_number, floor, room_type}>`, `form: SuperValidated<CreateBookingForm>`
+  - [x]Uses Superforms: `const { form: formData, errors, enhance, submitting } = superForm(form, { validators: zod4(CreateBookingFormSchema) })`
+  - [x]Field: `GuestInput` — text input bound to `$formData.guest_name`, error from `$errors.guest_name`
+  - [x]Field: Room selector — `<select bind:value={$formData.room_id}>` listing all rooms as "F{floor} — {room_number} ({room_type})"; shows error from `$errors.room_id`
+  - [x]Field: Check-in date — `<input type="date">`, defaults to today
+  - [x]Field: Check-out date — hidden when `$formData.is_long_stay`, defaults to tomorrow
+  - [x]Field: Booking source — `<select>` with options Agoda / Booking.com / Trip.com / Facebook / Walk-in (values: `agoda`, `booking_com`, `trip_com`, `facebook`, `walk_in`)
+  - [x]Long-stay toggle: `<input type="checkbox" bind:checked={$formData.is_long_stay}>` — when checked, hides `check_out_date` and shows `duration_days` (number input, min=30); auto-disables for non-apartment rooms
+  - [x]Submit button: disabled + spinner when `$submitting`; label "Tạo đặt phòng"
+  - [x]Validation: all field errors shown below each field on blur via Superforms `blur` strategy
 
-- [ ] **Task 5: Create `GuestInput.svelte` component** (AC: #1, #3, #4)
-  - [ ] Create `src/lib/components/bookings/GuestInput.svelte`
-  - [ ] Props: `value: string` (bindable), `error?: string`, `placeholder?: string`
-  - [ ] Simple text input with label "Tên khách", error message slot below
-  - [ ] Minimum 48×48px touch target on mobile (Tailwind `h-12 py-3`)
+- [x] **Task 5: Create `GuestInput.svelte` component** (AC: #1, #3, #4)
+  - [x]Create `src/lib/components/bookings/GuestInput.svelte`
+  - [x]Props: `value: string` (bindable), `error?: string`, `placeholder?: string`
+  - [x]Simple text input with label "Tên khách", error message slot below
+  - [x]Minimum 48×48px touch target on mobile (Tailwind `h-12 py-3`)
 
-- [ ] **Task 6: Add Bookings nav link** (AC: #1)
-  - [ ] Add "Bookings" (`/bookings`) link to `TopNavbar.svelte` for reception and manager roles
-  - [ ] Add to `BottomTabBar.svelte` for mobile (reception only — housekeeping cannot access)
+- [x] **Task 6: Add Bookings nav link** (AC: #1)
+  - [x]Add "Bookings" (`/bookings`) link to `TopNavbar.svelte` for reception and manager roles
+  - [x]Add to `BottomTabBar.svelte` for mobile (reception only — housekeeping cannot access)
 
-- [ ] **Task 7: Unit tests** (AC: all)
-  - [ ] `src/lib/server/db/bookings.test.ts` — mock Supabase client; test `createBooking()`: success case, duplicate room check, invalid dates; do NOT hit real DB
-  - [ ] `src/lib/server/db/guests.test.ts` — mock Supabase client; test `createGuest()`: success case, empty name validation
-  - [ ] `src/lib/db/schema.test.ts` additions — test `CreateBookingFormSchema`: valid OTA booking, valid walk-in, check-out before check-in (error), long-stay < 30 days (error), long-stay ≥ 30 days (pass)
+- [x] **Task 7: Unit tests** (AC: all)
+  - [x]`src/lib/server/db/bookings.test.ts` — mock Supabase client; test `createBooking()`: success case, duplicate room check, invalid dates; do NOT hit real DB
+  - [x]`src/lib/server/db/guests.test.ts` — mock Supabase client; test `createGuest()`: success case, empty name validation
+  - [x]`src/lib/db/schema.test.ts` additions — test `CreateBookingFormSchema`: valid OTA booking, valid walk-in, check-out before check-in (error), long-stay < 30 days (error), long-stay ≥ 30 days (pass)
 
 ## Dev Notes
 

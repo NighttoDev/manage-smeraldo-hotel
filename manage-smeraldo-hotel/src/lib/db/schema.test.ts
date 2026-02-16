@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CreateStaffSchema, UpdateStaffSchema } from './schema';
+import { AttendanceLogSchema, CreateBookingFormSchema, CreateStaffSchema, UpdateStaffSchema } from './schema';
 
 // ── CreateStaffSchema ─────────────────────────────────────────────────────────
 
@@ -123,6 +123,137 @@ describe('UpdateStaffSchema', () => {
 			full_name: 'Valid Name',
 			role: 'superadmin',
 			is_active: true
+		});
+		expect(result.success).toBe(false);
+	});
+});
+
+// ── AttendanceLogSchema ───────────────────────────────────────────────────────
+
+describe('AttendanceLogSchema', () => {
+	it('accepts valid shift values (0, 0.5, 1, 1.5)', () => {
+		const validValues = [0, 0.5, 1, 1.5];
+		validValues.forEach((shift_value) => {
+			const result = AttendanceLogSchema.safeParse({
+				staff_id: '550e8400-e29b-41d4-a716-446655440000',
+				log_date: '2026-02-15',
+				shift_value,
+				logged_by: '550e8400-e29b-41d4-a716-446655440001'
+			});
+			expect(result.success, `shift_value ${shift_value} should be valid`).toBe(true);
+		});
+	});
+
+	it('rejects invalid shift values', () => {
+		const invalidValues = [2, -1, 0.3, 0.7, 3, -0.5];
+		invalidValues.forEach((shift_value) => {
+			const result = AttendanceLogSchema.safeParse({
+				staff_id: '550e8400-e29b-41d4-a716-446655440000',
+				log_date: '2026-02-15',
+				shift_value,
+				logged_by: '550e8400-e29b-41d4-a716-446655440001'
+			});
+			expect(result.success, `shift_value ${shift_value} should be invalid`).toBe(false);
+		});
+	});
+
+	it('rejects invalid date format', () => {
+		const result = AttendanceLogSchema.safeParse({
+			staff_id: '550e8400-e29b-41d4-a716-446655440000',
+			log_date: '15/02/2026',
+			shift_value: 1,
+			logged_by: '550e8400-e29b-41d4-a716-446655440001'
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects invalid UUID for staff_id', () => {
+		const result = AttendanceLogSchema.safeParse({
+			staff_id: 'not-a-uuid',
+			log_date: '2026-02-15',
+			shift_value: 1,
+			logged_by: '550e8400-e29b-41d4-a716-446655440001'
+		});
+		expect(result.success).toBe(false);
+	});
+});
+
+// ── CreateBookingFormSchema ───────────────────────────────────────────────────
+
+describe('CreateBookingFormSchema', () => {
+	const validBase = {
+		guest_name: 'Nguyễn Văn A',
+		room_id: '550e8400-e29b-41d4-a716-446655440000',
+		check_in_date: '2026-03-01',
+		check_out_date: '2026-03-05',
+		booking_source: 'agoda' as const,
+		is_long_stay: false
+	};
+
+	it('accepts a valid OTA booking', () => {
+		const result = CreateBookingFormSchema.safeParse(validBase);
+		expect(result.success).toBe(true);
+	});
+
+	it('accepts a valid walk-in booking', () => {
+		const result = CreateBookingFormSchema.safeParse({
+			...validBase,
+			booking_source: 'walk_in',
+			guest_name: 'Trần Thị B'
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('rejects when check_out_date is before check_in_date', () => {
+		const result = CreateBookingFormSchema.safeParse({
+			...validBase,
+			check_in_date: '2026-03-10',
+			check_out_date: '2026-03-05'
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects when check_out_date equals check_in_date', () => {
+		const result = CreateBookingFormSchema.safeParse({
+			...validBase,
+			check_in_date: '2026-03-05',
+			check_out_date: '2026-03-05'
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects empty guest_name', () => {
+		const result = CreateBookingFormSchema.safeParse({ ...validBase, guest_name: '' });
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects invalid room_id (not a UUID)', () => {
+		const result = CreateBookingFormSchema.safeParse({ ...validBase, room_id: 'not-a-uuid' });
+		expect(result.success).toBe(false);
+	});
+
+	it('accepts long-stay with duration_days >= 30', () => {
+		const result = CreateBookingFormSchema.safeParse({
+			...validBase,
+			is_long_stay: true,
+			duration_days: 30
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('rejects long-stay with duration_days < 30', () => {
+		const result = CreateBookingFormSchema.safeParse({
+			...validBase,
+			is_long_stay: true,
+			duration_days: 15
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('rejects invalid booking_source', () => {
+		const result = CreateBookingFormSchema.safeParse({
+			...validBase,
+			booking_source: 'airbnb' as never
 		});
 		expect(result.success).toBe(false);
 	});

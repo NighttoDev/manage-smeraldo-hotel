@@ -158,6 +158,25 @@ export async function insertRoomStatusLog(
 }
 
 /**
+ * Fetch rooms available for a new booking selection (status = 'available' or 'ready').
+ * Ordered by floor ASC, room_number ASC.
+ */
+export async function getActiveRoomsForBooking(supabase: SupabaseClient): Promise<RoomRow[]> {
+	const { data, error } = await supabase
+		.from('rooms')
+		.select('id, room_number, floor, room_type, status, current_guest_name, created_at, updated_at')
+		.in('status', ['available', 'ready'])
+		.order('floor', { ascending: true })
+		.order('room_number', { ascending: true });
+
+	if (error) {
+		throw new Error(`Failed to fetch rooms for booking: ${error.message}`);
+	}
+
+	return (data ?? []) as RoomRow[];
+}
+
+/**
  * Calculate room status counts from a list of rooms.
  */
 export function calculateStatusCounts(rooms: RoomRow[]): RoomStatusCounts {

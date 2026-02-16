@@ -136,6 +136,33 @@ export type RoomStatusLog = z.infer<typeof RoomStatusLogSchema>;
 
 // ── Form Schemas (for Superforms validation) ──────────────────────────────────
 
+// ── Booking Form Schema (for Superforms validation) ───────────────────────────
+
+export const CreateBookingFormSchema = z
+	.object({
+		guest_name: z.string().min(1, { error: 'Tên khách không được để trống' }),
+		room_id: z.string().uuid({ error: 'Vui lòng chọn phòng' }),
+		check_in_date: DateString,
+		check_out_date: DateString,
+		booking_source: BookingSourceSchema,
+		is_long_stay: z.boolean().optional().default(false),
+		duration_days: z.number().int().min(30, { error: 'Thời gian lưu trú phải ít nhất 30 ngày' }).optional()
+	})
+	.refine(
+		(data) => {
+			if (data.is_long_stay) {
+				return (data.duration_days ?? 0) >= 30;
+			}
+			return data.check_out_date > data.check_in_date;
+		},
+		{
+			error: 'Ngày check-out phải sau ngày check-in (hoặc thời gian lưu trú phải ≥ 30 ngày)',
+			path: ['check_out_date']
+		}
+	);
+
+export type CreateBookingForm = z.infer<typeof CreateBookingFormSchema>;
+
 export const CreateStaffSchema = z.object({
 	full_name: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
 	email: z.string().email('Email không hợp lệ'),
